@@ -1,5 +1,4 @@
-# fish_abundance
-Fish habitat restoration to promote adaptation: resilience of sport fish in lakes of the Upper Midwest
+#Fish habitat restoration to promote adaptation: resilience of sport fish in lakes of the Upper Midwest
 
 Our objectives are to:
 1. Develop a statistical framework to jointly model relative abundance of multiple species of fish at multiple life stages;
