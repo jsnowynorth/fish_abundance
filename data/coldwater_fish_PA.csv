@@ -1,0 +1,758 @@
+DOWNumber,LAKE_NAME,cisco,whitefish,laketrout
+1004000,Aitkin,1,0,0
+1004600,Ball Bluff,1,0,0
+1005700,Little Ball Bluff,1,0,0
+1006200,Big Sandy,1,0,0
+1007000,Round,1,0,0
+1007300,Bass,1,0,0
+1008900,Long,1,0,0
+1009600,Dam,1,0,0
+1010900,Taylor,1,0,0
+1014600,Ripple,1,0,0
+1015900,Farm Island,1,0,0
+1017000,Hanging Kettle,1,0,0
+1017600,Little Pine,1,0,0
+1017800,Spirit,1,0,0
+1017900,Hickory,1,0,0
+1020400,Round,1,0,0
+1020900,Cedar,1,0,0
+3001000,Straight,1,0,0
+3001700,Two Inlets,1,0,0
+3003000,Boot,1,0,0
+3008500,Bad Medicine,1,0,0
+3013900,Pike,1,0,0
+3015500,Round,1,1,0
+3015600,Ice Cracking,1,0,0
+3015800,Many Point,1,1,0
+3015900,Elbow,1,0,0
+3019500,Height of Land,1,0,0
+3023400,Little Bemidji,1,0,0
+3025800,Acorn,1,0,0
+3028600,Cotton,1,0,0
+3032300,Strawberry,1,0,0
+3032800,White Earth,1,0,0
+3035000,Buffalo,1,0,0
+3035900,Sallie,1,0,0
+3037100,Meadow,1,0,0
+3038100,Detroit,1,0,0
+3038300,Long,1,0,0
+3038600,Little Floyd,1,0,0
+3038700,Floyd,1,0,0
+3047500,Melissa,1,0,0
+3050000,Maud,1,0,0
+3050300,Eunice,1,0,0
+4000700,Kitchi,1,1,0
+4001500,Little Rice,1,0,0
+4002400,Gilstad,1,0,0
+4003000,Cass,1,1,0
+4003100,Big Rice,1,0,0
+4003200,Pimushe,1,0,0
+4003400,Rabideau,1,0,0
+4003501,Red (Upper Red),0,1,0
+4003800,Andrusia,1,1,0
+4004200,Buck,1,0,0
+4004900,Big,1,1,0
+4006900,Blackduck,1,1,0
+4007900,Wolf,1,1,0
+4008500,Swenson,1,0,0
+4011100,Turtle River,1,1,0
+4013002,Bemidji (main lake),1,1,0
+4013400,Three Island,1,0,0
+4013500,Beltrami,1,0,0
+4014000,Irving,1,1,0
+4014100,Carr,1,0,0
+4014200,Marquette,1,1,0
+4015200,Movil,1,0,0
+4015500,Little Turtle,1,0,0
+4015700,Black,1,0,0
+4015900,Turtle,1,0,0
+4016200,Fox,1,0,0
+4019600,Campbell,1,0,0
+4021100,Bootleg,1,0,0
+4021700,Grant,1,0,0
+4023000,Deer,1,0,0
+4029700,Buzzle,1,0,0
+4030700,Sandy,0,1,0
+4034300,Clearwater,1,0,0
+9001000,Hay,1,0,0
+9003400,Bear,1,0,0
+9003500,Little Hanging Horn,1,0,0
+9003800,Hanging Horn,1,0,0
+11000900,Little Thunder,1,0,0
+11003000,Little Vermillion,1,0,0
+11003700,Leavitt,1,0,0
+11004300,Roosevelt,1,0,0
+11004700,Mule,1,0,0
+11005300,Lawrence,1,0,0
+11005900,Washburn,1,0,0
+11006100,Little Thunder,1,0,0
+11006200,Thunder,1,1,0
+11006900,Bass,1,0,0
+11010500,Upper Trelipe,1,0,0
+11012000,Inguadona,1,0,0
+11012900,Lower Trelipe,1,0,0
+11013300,Swift,1,0,0
+11014200,Long,1,0,0
+11014300,Boy,1,0,0
+11014600,Six Mile,1,0,0
+11014700,Winnibigoshish,1,1,0
+11016300,Cooper,1,0,0
+11016700,Little Boy,1,0,0
+11017100,Wabedo,1,0,0
+11017400,Girl,1,0,0
+11019900,Hay,1,0,0
+11020000,Mule,1,0,0
+11020100,Woman,1,0,0
+11020300,Leech,1,1,0
+11020400,Portage,1,1,0
+11021800,Upper Gull,1,0,0
+11022000,Ray,1,0,0
+11022200,Margaret,1,0,0
+11023200,Hattie,1,0,0
+11023700,Deep Portage,1,0,0
+11024200,Hand,1,0,0
+11025000,Ada,1,0,0
+11026100,McKeown,1,0,0
+11026200,Kid,1,0,0
+11026300,Child,1,0,0
+11027400,Blackwater,1,0,0
+11027700,Big Deep,1,0,0
+11028200,Man,1,0,0
+11028300,Baby,1,0,0
+11028500,Rat,1,0,0
+11028900,Cedar,1,0,0
+11030400,Sylvan,1,0,0
+11030500,Gull,1,0,0
+11031300,Lower Sucker,1,1,0
+11032000,Pillager,1,0,0
+11035000,Bowen,1,0,0
+11035100,Five Point,1,0,0
+11036700,Lind,1,0,0
+11038300,Pleasant,1,0,0
+11040000,Jack,1,0,0
+11041100,Pine Mountain,1,0,0
+11041200,Birch,1,0,0
+11041300,Ten Mile,1,1,0
+11041500,Pike Bay,1,1,0
+11046600,Fifth,1,0,0
+11046900,Anway,1,0,0
+11047200,Howard,1,0,0
+11047600,Portage,1,0,0
+11048000,Long,1,0,0
+11048200,May,1,0,0
+11049000,Portage,1,0,0
+11049300,Welch,1,0,0
+11049400,Crooked,1,0,0
+11050400,Steamboat,1,1,0
+11050500,Little Wolf,0,1,0
+11086600,Unnamed (Tamarack),1,0,0
+15000100,Big LaSalle,1,0,0
+15001000,Elk,1,0,0
+15001600,Itasca,1,0,0
+15009000,Deep,1,0,0
+16001900,Tom,0,1,0
+16002700,McFarland,1,1,0
+16002900,Devilfish,1,0,1
+16004100,Pine,1,1,1
+16004200,East Pike,1,1,0
+16004300,Moose,1,1,1
+16004900,Trout,1,0,1
+16007700,Greenwood,0,1,1
+16008600,West Pike,1,0,1
+16009000,Crystal,0,0,1
+16009300,Mountain,0,0,1
+16011400,Alder,0,0,1
+16013500,Jim,0,0,1
+16013600,Deer,0,1,0
+16013900,Clearwater,0,0,1
+16014100,Caribou,0,1,0
+16014300,Devil Track,0,1,0
+16014600,East Bearskin,0,0,1
+16014700,Flour,0,0,1
+16015000,Daniels,0,0,1
+16017000,Little Trout,0,0,1
+16018800,Kemo,0,0,1
+16019400,Pine,1,0,1
+16022700,Hungry Jack,1,0,1
+16022800,Bearskin,0,0,1
+16023000,Rose,0,1,1
+16023200,Duncan,0,0,1
+16023300,Partridge,0,0,1
+16023400,Moss,0,1,1
+16023900,Poplar,0,1,0
+16024400,South,1,0,1
+16024500,Dunn,0,0,1
+16025200,Pike,0,1,0
+16026700,Vernon,0,1,0
+16026800,Swan,0,1,0
+16029300,State,1,0,1
+16031900,Gaskin,0,1,0
+16033100,North,1,0,1
+16033700,Mayhew,0,0,1
+16034800,Brule,1,0,1
+16035400,Winchell,0,1,1
+16035600,Gunflint,1,0,1
+16039100,Mid Cone,1,0,1
+16043500,Davis,1,0,1
+16043800,Cash,0,0,1
+16044800,Loon,0,0,1
+16045800,Town,0,0,1
+16046000,Long Island,0,0,1
+16046100,Karl,1,0,1
+16046300,Magnetic,1,0,1
+16052400,Cherokee,0,0,1
+16053200,Blue Snow,1,0,1
+16056900,Gordon,0,0,1
+16057100,Frost,0,0,1
+16058100,Clove,0,1,0
+16061000,Marabaeuf,1,1,1
+16061600,Devils Elbow,1,1,0
+16061700,Gneiss,1,1,1
+16062300,Tuscarora,0,0,1
+16062900,Sea Gull,1,1,1
+16063200,Gull,1,1,0
+16063300,Saganaga (1-7) - MN,1,1,1
+16071600,Fern,0,0,1
+16071800,West Fern,0,0,1
+16071900,Virgin,1,0,1
+16072300,Crooked,0,0,1
+16072600,Owl,0,0,1
+16075200,Bat,0,0,1
+16075300,Gillis,0,0,1
+16075500,French,0,0,1
+16075600,Powell,0,0,1
+16075700,Peter,0,0,1
+16075900,Alpine,1,1,0
+16076800,Jasper,0,1,1
+16078300,Fay,0,0,1
+16078900,Howard,0,0,1
+16079300,Red Rock,1,1,0
+16080900,Little Saganaga,0,0,1
+16081100,Gabimichigami,0,0,1
+16081200,Kingfisher,0,1,0
+16081300,Zephyr,0,1,0
+16090000,Granite Bay,0,1,0
+18000100,Whitefish,1,0,0
+18000200,Long / Tame Fish,1,0,0
+18001900,Kenney,1,0,0
+18002000,Borden,1,0,0
+18002800,Smith,1,0,0
+18003000,Barbour,1,0,0
+18003400,Bay,1,0,0
+18003800,Clearwater,1,0,0
+18004100,Crooked,1,0,0
+18004400,Hanks,1,0,0
+18005000,Portage,1,0,0
+18006900,Portage,1,0,0
+18008800,Platte,1,0,0
+18009000,Serpent,1,0,0
+18009302,Rabbit (West Portion),1,0,0
+18009600,Upper South Long,1,0,0
+18010400,Nokay,1,0,0
+18013100,Clinker,1,0,0
+18013300,Miller,1,0,0
+18013600,South Long,1,0,0
+18013900,Little Rabbit,1,0,0
+18014000,Black Bear,1,0,0
+18020800,Allen,1,0,0
+18020900,Pug Hole,1,0,0
+18021100,Blue,1,0,0
+18022300,Goggle,1,0,0
+18024200,Upper Mission,1,0,0
+18024300,Lower Mission,1,0,0
+18026100,Pine,0,1,0
+18026600,Little Pine,1,1,0
+18026900,Island-Loon,1,1,0
+18027100,Daggett,1,1,0
+18029400,Mitchell,1,0,0
+18029600,Eagle,1,0,0
+18029700,West Fox,1,0,0
+18029800,East Fox,1,0,0
+18030500,Edward,1,0,0
+18030800,Pelican,1,1,0
+18031000,Whitefish,1,1,0
+18031100,Rush-Hen,1,1,0
+18031200,Cross Lake Reservoir,1,1,0
+18031500,Big Trout,1,1,0
+18035200,Ossawinnamakee,1,1,0
+18035400,Pig,1,1,0
+18035500,Bertha,1,1,0
+18035600,Clamshell,1,1,0
+18035800,Bass,1,0,0
+18035900,Star,1,0,0
+18036000,Little Star,1,0,0
+18036100,Kimball,1,1,0
+18036400,Clear,1,0,0
+18036600,Arrowhead,0,1,0
+18037200,North Long,1,0,0
+18037300,Round,1,0,0
+18037500,Hubert,1,0,0
+18037600,Upper Cullen,1,0,0
+18037700,Middle Cullen,1,0,0
+18037800,Lower Hay,1,1,0
+18039600,Edna,1,0,0
+18039700,Fawn,1,0,0
+18039800,Roy,1,0,0
+18039900,Nisswa,1,0,0
+18040300,Lower Cullen,1,0,0
+21004900,Burgen,1,0,0
+21005200,Geneva,1,0,0
+21005400,Victoria,1,0,0
+21005500,Jessie,1,0,0
+21005600,Le Homme Dieu,1,0,0
+21005700,Carlos,1,0,0
+21007600,Irene,1,0,0
+21008000,Darling,1,0,0
+21008300,Miltona,1,0,0
+21008500,Andrew,1,0,0
+21009200,Mary,1,0,0
+21009400,Louise,1,0,0
+21009500,North Union,1,0,0
+21010100,Stony,1,0,0
+21010200,Brophy,1,0,0
+21010300,"Cowdrey, Lake",1,0,0
+21010500,Lottie,1,0,0
+21010600,Latoka,1,0,0
+21010800,Mina,1,0,0
+21012300,Ida,1,0,0
+21014400,Lobster,1,0,0
+21014500,Chippewa,1,0,0
+21016000,Rachel,1,0,0
+21018000,Mill,1,0,0
+29000500,Tripp,1,0,0
+29002500,Ninth Crow Wing,1,0,0
+29003600,Eleventh Crow Wing,1,0,0
+29004300,Shingobee,1,0,0
+29004500,Tenth Crow Wing,1,0,0
+29004800,Benedict,1,1,0
+29007200,Eighth Crow Wing,1,0,0
+29007500,Kabekona,1,1,0
+29007700,Third Crow Wing,1,0,0
+29008500,Second Crow Wing,1,0,0
+29008600,First Crow Wing,1,0,0
+29009100,Seventh Crow Wing,1,0,0
+29009200,Fifth Crow Wing,1,0,0
+29009300,Sixth Crow Wing,1,0,0
+29010101,East Crooked,1,0,0
+29011700,Spider,1,0,0
+29014800,Upper Bottle,1,0,0
+29015000,Little Sand,1,0,0
+29015100,Mantrap,1,0,0
+29015600,Plantagenet,1,1,0
+29016100,Long,1,0,0
+29018000,Lower Bottle,1,0,0
+29018400,Blue,1,0,0
+29018500,Big Sand,1,0,0
+29018600,Emma,1,0,0
+29020600,Buck,1,0,0
+29020800,Bad Axe,1,0,0
+29021600,George,1,0,0
+29023700,Newman,1,0,0
+29023900,Spearhead,1,0,0
+29024100,Frontenac,1,0,0
+29024200,Fish Hook,1,0,0
+29024300,Potato,1,0,0
+29024900,Hinds,1,0,0
+29025400,Island,1,0,0
+29025600,Eagle,1,0,0
+29030000,Hattie,1,0,0
+29030900,LaSalle,1,0,0
+31000300,South Sturgeon,1,0,0
+31002000,Hart,1,0,0
+31006700,Swan,1,0,0
+31008400,Shallow,1,0,0
+31010600,Ox Hide,1,0,0
+31014700,Bray,1,0,0
+31015400,Hartley,1,1,0
+31018300,Five Island,1,0,0
+31018800,Tank,1,0,0
+31019000,North Twin,1,0,0
+31019100,South Twin,1,0,0
+31019200,Nashwauk,1,0,0
+31019300,Crooked,1,1,0
+31019600,Poplar,1,0,0
+31019700,Battle,1,0,0
+31021600,Trout,1,1,0
+31021700,Island,1,0,0
+31021800,Shamrock,1,0,0
+31021900,O'Reilly,1,0,0
+31023100,Lawrence,1,0,0
+31023900,Lower Hanson,1,0,0
+31024700,Lower Balsam,1,0,0
+31025500,Snaptail,1,0,0
+31025900,Balsam,1,0,0
+31027800,Barwise,1,0,0
+31028100,Wasson,1,0,0
+31033400,Deer,1,0,0
+31033800,Unnamed (Lorraine),1,0,0
+31033900,Pickerel,1,0,0
+31034100,Little Split Hand,1,0,0
+31034400,Hanson,1,0,0
+31034500,Scrapper,1,0,0
+31034900,Antler,1,0,0
+31035300,Split Hand,1,0,0
+31037300,Hale,1,0,0
+31038400,Prairie,1,0,0
+31039200,Wabana,1,0,0
+31039400,Little Trout,1,0,0
+31039500,Bluewater,1,0,0
+31039600,Middle Hanson,1,0,0
+31039900,Little Wabana,1,0,0
+31041000,Trout,1,0,0
+31042200,Ruby,1,0,0
+31042900,Cutaway,1,0,0
+31045200,Gunn,1,0,0
+31045500,Mink,1,0,0
+31046000,East,1,0,0
+31046300,Fox,1,0,0
+31046400,Oar,1,0,0
+31046600,Horseshoe,1,0,0
+31048000,Gunn,1,0,0
+31048100,Highland,1,0,0
+31049000,Elizabeth,1,0,0
+31050200,Slauson,1,0,0
+31053000,Busties,1,0,0
+31053200,Pokegama,1,1,0
+31054000,Clubhouse,1,0,0
+31055400,Siseebakwet,1,0,0
+31055500,South Sugar,1,0,0
+31056100,Blackwater,1,0,0
+31056500,Jay Gould,1,1,0
+31056600,Little Jay Gould,1,0,0
+31057100,Loon,1,0,0
+31057500,Little Bass,1,0,0
+31057600,Bass,1,0,0
+31057900,Loon,1,0,0
+31060900,Fawn,1,0,0
+31061000,Little Moose,1,0,0
+31062400,Grave,1,0,0
+31065300,North Star,1,0,0
+31065700,Jack the Horse,1,0,0
+31066500,Little North Star,1,0,0
+31068700,Johnson,1,0,0
+31069000,Aspen,1,0,0
+31070400,Batson,1,0,0
+31070500,Lundeen,1,0,0
+31071600,Little Rice,1,0,0
+31071700,Rice,1,0,0
+31071900,Deer,1,1,0
+31072200,Moose,1,0,0
+31072500,Turtle,1,1,0
+31072600,Bello,1,0,0
+31073900,Leighton,1,1,0
+31074900,Chase,1,0,0
+31075800,Little Bowstring,1,0,0
+31077100,Hatch,1,1,0
+31077300,Maple,1,0,0
+31077500,No-ta-she-bun,1,0,0
+31077800,Little Too Much,1,0,0
+31077900,Little Turtle,1,0,0
+31078100,Long,1,0,0
+31078400,Little Jessie,1,0,0
+31078600,Jessie,1,0,0
+31078900,Spring,1,0,0
+31079300,Big Too Much,1,0,0
+31079700,Little Spring,1,0,0
+31081200,Ball Club,1,0,0
+31081300,Bowstring,1,0,0
+31082400,Portage,1,0,0
+31082600,Sand,1,0,0
+31082900,Cedar,1,0,0
+31083200,Rush Island,1,0,0
+31083400,Bird's Eye,1,0,0
+31084300,Whitefish,1,0,0
+31085000,Little Winnibigoshish,1,0,0
+31085200,Little Cut Foot Sioux,1,0,0
+31085300,Little Sand,1,0,0
+31085700,Cut Foot Sioux,1,0,0
+31087400,Alice,1,0,0
+31088200,Dora,1,0,0
+31089600,Round,1,0,0
+31090400,Dunbar,1,0,0
+31091000,Shallow Pond,1,0,0
+31091100,Hamrey,1,0,0
+31091300,Island,1,0,0
+31092100,Dixon,1,0,0
+34007900,Green,1,0,0
+38004800,Harriet,0,1,0
+38006600,T,0,1,0
+38006800,Windy,0,1,0
+38009000,Malberg,1,1,0
+38009800,Koma,1,1,0
+38011300,Raven,0,0,1
+38014700,Makwa,0,0,1
+38015300,Adams,0,1,0
+38016100,Fish,0,1,0
+38016200,Gift,0,1,0
+38016300,Link,0,1,0
+38016600,Cherry,1,0,1
+38016800,Lunar,0,0,1
+38016900,Lake of the Clouds,1,0,1
+38017200,Topaz,1,0,0
+38017800,Holt,0,0,1
+38018000,Ogishkemuncie,0,1,0
+38018700,Eddy,0,1,0
+38019400,Jenny,0,1,0
+38019500,Annie,0,1,0
+38020600,Hanson,1,1,1
+38020700,Ester,0,1,0
+38020900,Gijikiki,0,0,1
+38021000,Ashdick,1,0,0
+38021100,Ottertrack,1,1,1
+38021400,Rabbit,0,0,1
+38021900,Silver Island,0,1,0
+38022000,Perent,1,1,0
+38022300,Beaver,1,0,0
+38022400,Bakekana,1,0,1
+38022500,Sagus,1,0,0
+38022600,Kekekabic,0,0,1
+38022700,Amoeber,1,0,1
+38022800,Kek,0,0,1
+38022900,Little Knife,1,1,1
+38033000,Alice,1,1,0
+38033600,Amber,1,0,0
+38034300,Fishdance,1,1,0
+38035100,Thomas,1,0,1
+38036000,Strup,0,0,1
+38036100,Wisini,0,0,1
+38036500,Ahmakose,0,0,1
+38036900,Hatchet,1,0,0
+38037200,Fraser,1,0,1
+38037300,Shepo,1,0,0
+38038600,Sema,0,0,1
+38038800,Spoon,1,0,0
+38039600,Isabella,0,1,0
+38039700,Insula,1,1,0
+38039800,Missionary,1,0,1
+38039900,Explorer,0,0,1
+38040000,Ima,1,0,1
+38040100,Alworth,1,0,0
+38040400,Knife,1,1,1
+38047700,Cache,1,0,0
+38048400,Hudson,1,1,0
+38048800,Disappointment,1,0,0
+38049100,Vera,1,0,0
+38049800,Ensign,1,0,0
+38050200,Ashigan,1,0,0
+38050300,Boot,1,0,0
+38050800,Gibson,1,0,0
+38051100,Jordan,1,0,0
+38052400,Portage,1,0,0
+38052600,Parent,1,0,0
+38052800,Four,1,1,0
+38052900,Snowbank,1,0,0
+38053000,Sucker,1,1,0
+38053100,Splash,1,0,0
+38053200,Birch,1,1,0
+38058000,Horseshoe,1,1,0
+38060000,Three,1,0,0
+38060500,One,1,1,0
+38060800,Two,1,1,0
+38061900,Newfound,1,1,0
+38063700,Bald Eagle,1,1,0
+38063800,Clearwater,0,1,0
+38064000,Ojibway,1,0,0
+38064400,Moose,1,1,0
+38064500,Basswood,1,1,1
+38070100,Gabbro,1,0,0
+38070300,Little Gabbro,1,0,0
+38071400,Section Twelve,1,0,0
+38071500,Triangle,1,0,0
+38071800,Greenstone,1,0,0
+38072400,Tofte,1,0,0
+38072600,Good,1,0,0
+38073800,North Branch Kawishiwi,1,0,0
+38077800,South Farm,1,0,0
+38077900,Farm,1,1,0
+38078100,Stub,1,0,0
+38078200,Garden,1,1,0
+38078400,Newton,1,1,0
+38079200,Horse,1,0,0
+38081000,Cedar,1,0,0
+38081100,Fall,1,1,0
+38081300,Fourtown,1,0,0
+38081600,Moosecamp,1,0,0
+38081700,Crooked,1,1,0
+39000200,Lake of the Woods,1,1,0
+44000300,Tulaby,1,0,0
+44001400,South Twin,1,0,0
+44002300,North Twin,1,0,0
+44004500,Snider,1,0,0
+44008000,McCraney,1,0,0
+44010800,Sargent,1,0,0
+48000200,Mille Lacs,1,0,0
+48001200,Shakopee,1,0,0
+49001600,Sullivan,1,0,0
+49001900,Round,1,0,0
+49007900,Alexander,1,0,0
+49013700,Fish Trap,1,0,0
+49014000,Cedar,1,0,0
+56011400,West Leaf,1,0,0
+56011601,Middle Leaf,1,0,0
+56011602,East Leaf,1,0,0
+56013000,Big Pine,1,0,0
+56013800,East Battle,1,1,0
+56014100,Rush,1,0,0
+56014200,Little Pine,1,0,0
+56018000,Siverson,1,0,0
+56019100,Stuart,1,0,0
+56021200,Boedigheimer,1,0,0
+56022900,Murphy,1,0,0
+56023800,Clitherall,1,0,0
+56023900,West Battle,1,1,0
+56024000,Blanche,1,0,0
+56024100,Annie Battle,1,0,0
+56024200,Otter Tail,1,0,0
+56024300,Marion,1,0,0
+56024700,Fischer,1,0,0
+56029800,Deer,1,0,0
+56030300,Molly Stark,1,1,0
+56031000,Walker,1,0,0
+56032800,Little McDonald,1,0,0
+56034800,Tenter,1,0,0
+56035500,Wimer,1,0,0
+56035800,Scalp,1,0,0
+56036000,Rose,1,0,0
+56036800,Graham,1,0,0
+56036900,Six,1,0,0
+56037800,East Lost,1,0,0
+56038300,Dead,1,0,0
+56038500,Star,1,0,0
+56038700,Sybil,1,0,0
+56038802,Long (main lake),1,0,0
+56043700,Stalker,1,0,0
+56047500,Pickerel,1,0,0
+56048100,West Lost,1,0,0
+56051400,Elbow,1,0,0
+56052300,East Loon,1,0,0
+56057600,Big Crow,1,0,0
+56074701,North Lida,1,0,0
+56074702,South Lida,1,0,0
+56074900,Crystal,1,0,0
+56075900,Franklin,1,0,0
+56076001,Lizzie (north portion),1,0,0
+56076100,Little Pelican,1,0,0
+56076800,Fish,1,0,0
+56077000,Bass,1,0,0
+56078200,Hoot,1,0,0
+56078400,Long,1,0,0
+56078600,Pelican,1,0,0
+56082900,Pebble,1,0,0
+56087700,Jewett,1,0,0
+56091500,Prairie,1,0,0
+58012300,Grindstone,1,0,0
+69000300,Birch,1,0,0
+69000400,White Iron,1,1,0
+69006100,One Pine,1,0,0
+69006400,Dry,1,0,0
+69006600,Little Long,1,0,0
+69006900,Shagawa,1,1,0
+69007502,South Hegman,1,0,0
+69007800,Mudro,1,0,0
+69008500,Fenske,1,0,0
+69008600,Little Sletten,1,0,0
+69008900,Bear Trap,1,0,0
+69010000,Boot,1,0,0
+69011100,Smith,1,0,0
+69011500,Bear Island,1,0,0
+69011800,Burntside,1,1,0
+69012100,Iron,1,0,0
+69017400,East Twin,0,1,0
+69018100,Slim,1,0,0
+69020500,Stuart,1,0,0
+69021300,Toe,1,0,0
+69022000,Crab,1,0,0
+69022300,Agnes,1,0,0
+69022400,Lac la Croix,1,1,0
+69027500,Mud,1,0,0
+69028501,Eagles Nest #1,1,0,1
+69032500,Cummings,1,0,0
+69033000,Oyster,1,0,0
+69033700,Thumb,1,0,0
+69034300,Hustler,1,0,0
+69034800,Finger,1,0,0
+69035000,Ge-Be-On-Equat,1,1,0
+69036900,Takucmich,1,0,0
+69037200,Island Lake Reservoir,1,0,0
+69037800,Vermilion,1,1,0
+69038300,Lynx,1,0,0
+69038400,Little Shell,1,0,0
+69043401,Sabin,1,0,0
+69043402,Wynne,1,0,0
+69045500,Little Trout,1,0,0
+69046900,Heritage,1,0,0
+69047000,Loon,1,1,0
+69047300,Eugene,1,1,0
+69047500,Steep,1,0,0
+69048000,Beartrack,1,0,0
+69048100,Fat,0,0,1
+69048400,Little Loon,1,1,0
+69048700,Gun,1,0,1
+69049600,Embarrass,1,0,0
+69049800,Trout,1,0,0
+69055300,Bass,1,0,0
+69056500,Esquagama,1,0,0
+69060800,Little Vermilion,1,1,0
+69061600,Crane,1,1,0
+69061700,Sand Point,1,1,0
+69065100,St. Mary's,1,0,0
+69066000,Ely,1,0,0
+69068200,Little Trout,1,0,0
+69068400,Mukooda,1,0,1
+69069000,Winchester,1,0,0
+69069100,Johnson,1,1,0
+69069300,Namakan,1,1,0
+69069400,Rainy,1,1,0
+69074400,Elbow,1,1,0
+69074800,Kjostad,1,0,0
+69076000,Little Johnson,0,1,0
+69076100,Spring,1,1,0
+69079600,Leander,1,0,0
+69083200,Cruiser,0,0,1
+69084500,Kabetogama,1,1,0
+69084800,Prairie,1,0,0
+69085900,Long,1,0,0
+69091200,Dewey,1,0,0
+69092500,Shannon,1,0,0
+69093300,Side,1,0,0
+69093600,Locator,1,0,0
+69093700,War Club,1,0,0
+69093901,Sturgeon,1,1,0
+69093903,West Sturgeon,1,0,0
+69104000,Little Dry,1,0,0
+69129000,Little Sturgeon,1,0,0
+73001500,Otter,1,0,0
+73008900,Zumwalde,1,0,0
+73011700,Big Spunk,1,0,0
+73012300,Lower Spunk,1,0,0
+73012800,Middle Spunk,1,0,0
+73013300,Cedar Island,1,0,0
+73013900,Long,1,0,0
+73015700,Horseshoe,1,0,0
+73018300,St. Anna,1,0,0
+73019600,Rice,1,0,0
+73020002,Koronis (main lake),1,0,0
+73024900,Sylvia,1,0,0
+77002200,Mons,1,0,0
+77002300,Big Swan,1,0,0
+77002400,Bass,1,0,0
+77002700,Long,1,0,0
+77003400,Little Swan,1,0,0
+77008400,Big Birch,1,0,0
+77008800,Turtle,1,0,0
+77008900,Little Birch,1,0,0
+77012000,Charlotte,1,0,0
+77015000,Sauk,1,0,0
+77015400,Fairy,1,0,0
+77021500,Osakis,1,0,0
+77035800,Lily,1,0,0
+80003000,Lower Twin,1,0,0
+80003400,Blueberry,1,0,0
+86022700,Cedar,1,0,0
+86023300,Sugar,1,0,0
+86025100,Pleasant,1,0,0
+86025200,Clearwater,1,0,0
+86027900,West Lake Sylvia,1,0,0
+86028100,Caroline,1,0,0
+86028400,Augusta,1,0,0
+86028900,East Lake Sylvia,1,0,0
