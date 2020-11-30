@@ -61,6 +61,15 @@ ggplot() +
   ylab("Latitude")
 
 
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = dat, aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = LAKE_AREA_DOW_ACRES)) +
+  scale_color_viridis(name = "Area", limits = c(0, 2000), option = 'inferno', direction = -1) +
+  xlab("Longitude") +
+  ylab("Latitude")
+
+
 fish_lon = dat %>% 
   select(c(cisco:laketrout, LAKE_CENTER_LONG_DD5, LAKE_CENTER_LAT_DD5, LAKE_AREA_DOW_ACRES)) %>% 
   pivot_longer(-c(LAKE_CENTER_LONG_DD5:LAKE_AREA_DOW_ACRES), values_to = 'Fish_ind', names_to = 'Fish') %>% 
@@ -109,7 +118,8 @@ fish_trait = dat %>%
 
 p1 <- ggplot() +
   geom_sf(data = usa) +
-  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1.2), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  scale_x_continuous(breaks = round(seq(lons[1] - 1, lons[2] + 1, by = 2))) +
   geom_point(data = fish_trait, aes(x = lon, y = lat, color = secchi)) +
   scale_color_continuous(low = 'blue', high = 'darkred', guide = 'colorbar', na.value = NA, name = 'Secchi') +
   xlab("Longitude") +
@@ -120,9 +130,10 @@ p1 <- ggplot() +
 
 p2 <- ggplot() +
   geom_sf(data = usa) +
-  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1.2), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  scale_x_continuous(breaks = round(seq(lons[1] - 1, lons[2] + 1, by = 2))) +
   geom_point(data = fish_trait, aes(x = lon, y = lat, color = log(littoral_area))) +
-  scale_color_continuous(low = 'blue', high = 'darkred', guide = 'colorbar', na.value = NA, name = 'Littoral Area') +
+  scale_color_continuous(low = 'blue', high = 'darkred', guide = 'colorbar', na.value = NA, name = 'Log Littoral Area') +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~Fish_pres, ncol = 1) +
@@ -130,7 +141,8 @@ p2 <- ggplot() +
 
 p3 <- ggplot() +
   geom_sf(data = usa) +
-  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1.2), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  scale_x_continuous(breaks = round(seq(lons[1] - 1, lons[2] + 1, by = 2))) +
   geom_point(data = fish_trait, aes(x = lon, y = lat, color = littoral_zone)) +
   scale_color_continuous(low = 'blue', high = 'darkred', guide = 'colorbar', na.value = NA, name = 'Littoral Zone') +
   xlab("Longitude") +
@@ -140,15 +152,18 @@ p3 <- ggplot() +
 
 p4 <- ggplot() +
   geom_sf(data = usa) +
-  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1.2), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  scale_x_continuous(breaks = round(seq(lons[1] - 1, lons[2] + 1, by = 2))) +
   geom_point(data = fish_trait, aes(x = lon, y = lat, color = log(shore_len))) +
-  scale_color_continuous(low = 'blue', high = 'darkred', guide = 'colorbar', na.value = NA, name = 'Shore Length') +
+  scale_color_continuous(low = 'blue', high = 'darkred', guide = 'colorbar', na.value = NA, name = 'Log Shore Length') +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~Fish_pres, ncol = 1) +
   theme(legend.position = 'bottom')
 
-cowplot::plot_grid(p1, p2, p3, p4, nrow = 1)
+p <- cowplot::plot_grid(p1, p2, p3, p4, nrow = 1)
+
+ggsave('results/exploratory_plots/spatial_by_metric.png', p, width = 12)
 
 
 # fish_trait = dat %>% 
@@ -203,9 +218,9 @@ p4 <- ggplot(data = fish_trait, aes(x = log(shore_len), fill = Fish_pres)) +
   ggtitle('Fish Density by Log Shore Length') +
   xlab('Log Shore Length')
 
-cowplot::plot_grid(p1, p2, p3, p4, ncol = 2)
+p <- cowplot::plot_grid(p1, p2, p3, p4, ncol = 2)
 
-
+ggsave('results/exploratory_plots/density_by_metric.png', p, width = 12)
 
 
 
