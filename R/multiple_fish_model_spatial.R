@@ -69,7 +69,7 @@ fish_dat = effort %>%
 
 all <- fish_dat %>% 
   group_by(SURVEYDATE, DOW) %>% 
-  expand(COMMON_NAME, SURVEYDATE, GEAR) %>% 
+  tidyr::expand(COMMON_NAME, SURVEYDATE, GEAR) %>% 
   ungroup() %>% 
   arrange(DOW)
 
@@ -371,15 +371,28 @@ update_sigma_species <- function(pars){
   Sigma_spatial_inv = pars$Sigma_spatial_inv
   spatial_var = pars$spatial_var
   eta = pars$eta
+  K = pars$K
   
   nu_species = pars$nu_species
   Psi_species = pars$Psi_species
+  
+  
+  # indexing
+  lake_index = pars$lake_index
+  lake_id = pars$lake_id
+  n_lakes = pars$n_lakes
+  
+  # set up species random effect
+  ind_array = data.frame(id = lake_id, eta)
+  lake_array = data.frame(id = lake_index)
+  ETA = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
   
   # parameters
   n_lakes = pars$n_lakes
   
   nu_hat = nu_species + n_lakes
   psi_hat = Psi_species + t(eta) %*% ((1/spatial_var) * Sigma_spatial_inv) %*% eta
+  psi_hat = Psi_species + t(ETA) %*% ((1/spatial_var) * kronecker(Sigma_spatial_inv, diag(K))) %*% ETA
   # psi_hat = Psi_species + t(eta) %*% solve(spatial_var * Sigma_spatial) %*% eta
   
   pars$Sigma_species = MCMCpack::riwish(nu_hat, psi_hat)
