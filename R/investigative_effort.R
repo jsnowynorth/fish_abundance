@@ -45,7 +45,8 @@ dat = effort %>%
   mutate(SURVEYDATE = mdy(SURVEYDATE)) %>% 
   select(-c(SURVEY_ID, LKNAME, CTY:SURVEYTYPE, AVG_MEASURED_WT_LBS:ALT_LAKE_NAME)) %>% 
   group_by(DOW, COMMON_NAME, GEAR) %>% 
-  summarise_at(vars(CPUE:LAKE_CENTER_UTM_NORTHING), list(mean))
+  summarise_at(vars(CPUE:LAKE_CENTER_UTM_NORTHING), list(mean)) %>% 
+  ungroup()
 
 # dat = effort %>% 
 #   left_join(static, by = 'DOW') %>% 
@@ -54,6 +55,41 @@ dat = effort %>%
 #   group_by(DOW, COMMON_NAME, GEAR) %>% 
 #   summarise_all(~mean(., na.rm = T))
 
+
+
+# looking at area to littoral surface -------------------------------------
+
+ggplot(data = dat, aes(x = log(LAKE_AREA_GIS_ACRES), fill = GEAR)) +
+  geom_density(alpha = 0.5) +
+  ggtitle('Log Lake Area GIS acres by Gear type') +
+  xlab('') +
+  facet_wrap(~GEAR)
+
+ggplot(data = dat, aes(x = log(LITTORAL_AREA_ACRES), fill = GEAR)) +
+  geom_density(alpha = 0.5) +
+  ggtitle('Log Littoral area acres by Gear type') +
+  xlab('') +
+  facet_wrap(~GEAR)
+
+
+sub_dat <- dat %>% 
+  select(LAKE_AREA_GIS_ACRES, LITTORAL_AREA_ACRES, GEAR) %>% 
+  rename(Lake = LAKE_AREA_GIS_ACRES,
+         Littoral = LITTORAL_AREA_ACRES) %>% 
+  pivot_longer(-GEAR, names_to = 'Measure', values_to = 'Area')
+
+ggplot(data = sub_dat, aes(x = log(Area), fill = Measure)) +
+  geom_density(alpha = 0.5) +
+  ggtitle('Log Lake and Log Littoral Area by Gear Type') +
+  xlab('') +
+  ylab('Density') +
+  facet_wrap(~GEAR)
+
+ggplot(data = dat, aes(x = log(LAKE_AREA_GIS_ACRES), y = log(EFFORT), color = GEAR)) +
+  geom_point(size = 1) +
+  facet_wrap(~GEAR)
+
+  
 
 
 # density plots -----------------------------------------------------------
