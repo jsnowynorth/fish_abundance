@@ -69,7 +69,7 @@ fish_dat = effort %>%
 
 all <- fish_dat %>% 
   group_by(SURVEYDATE, DOW) %>% 
-  expand(COMMON_NAME, SURVEYDATE, GEAR) %>% 
+  tidyr::expand(COMMON_NAME, SURVEYDATE, GEAR) %>% 
   ungroup() %>% 
   arrange(DOW)
 
@@ -188,7 +188,6 @@ create_pars <- function(fish_dat){
   pars$Psi_species = 10*diag(K)
   
   # spatial parameters
-  
   spat_dat = fish_dat %>% 
     distinct(DOW, .keep_all = T) %>% 
     select(DOW, LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING) %>% 
@@ -200,20 +199,21 @@ create_pars <- function(fish_dat){
   pars$spatial_var = 1
   pars$Sigma_spatial_inv = solve(pars$Sigma_spatial)
   
-  U = t(chol(kronecker(pars$Sigma_species, pars$Sigma_spatial)))
-  b = rnorm(pars$K * n_lakes)
+  # U = t(chol(kronecker(pars$Sigma_species, pars$Sigma_spatial)))
+  # b = rnorm(pars$K * n_lakes)
   
-  pars$eta = matrix(U%*%b, nrow = n_lakes, ncol = pars$K)
+  # pars$eta = matrix(U%*%b, nrow = n_lakes, ncol = pars$K)
+  
+  pars$eta = rep(0, nrow = n_lakes)
   
   
-  # dt_tmp = tibble(x = spat_dat$LAKE_CENTER_UTM_EASTING/1000, y = spat_dat$LAKE_CENTER_UTM_NORTHING/1000, z = C[,50])
-  # ggplot(dt_tmp, aes(x = x, y = y, color = z)) +
-  #   geom_point() +
-  #   scale_color_gradient(low = 'yellow', high = 'red')
-  
+  # species parameters
+  pars$W = rep(0, pars$K)
+  pars$W_accept = rep(0, pars$K)
   
   # Proposal variances
   pars$sig_prop = array(0.5, dim = c(K, pars$p))
+  pars$sig_prop_w = array(0.5, dim = c(K))
   
   
   # indexing
@@ -249,11 +249,13 @@ update_beta <- function(pars){
   beta_curr = pars$beta
   sig_prop = pars$sig_prop
   
-  # set up species random effect
+  # set up spatial random effect
   ind_array = data.frame(id = lake_id, eta)
   lake_array = data.frame(id = lake_index)
-  ETA = lake_array %>% right_join(ind_array, by = 'id') %>% select(-id)
+  ETA = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
   
+  # species random effect
+  W = pars$W
   
   for(i in 1:p){
     for(k in 1:K){
@@ -262,8 +264,8 @@ update_beta <- function(pars){
       beta_prop = beta_curr
       beta_prop[k,i] = b_prop
       
-      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_curr[k,] + ETA[,k]), log = T))
-      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_prop[k,] + ETA[,k]), log = T))
+      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_curr[k,] + ETA + W[k]), log = T))
+      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_prop[k,] + ETA + W[k]), log = T))
       
       if((like_prop - like_curr) > log(runif(1))){
         beta_curr[k,i] = b_prop
@@ -287,6 +289,7 @@ update_eta <- function(pars){
   # data
   Y = pars$Y
   X = pars$X
+  W = pars$W
   effort = pars$effort
   beta = pars$beta
   eta = pars$eta
@@ -294,9 +297,9 @@ update_eta <- function(pars){
   Sigma_spatial = pars$Sigma_spatial
   spatial_var = pars$spatial_var
   
-  C = Matrix(kronecker(Sigma_species, spatial_var * Sigma_spatial))
+  # C = Matrix(kronecker(Sigma_species, spatial_var * Sigma_spatial))
   
-  # C = kronecker(pars$Sigma_species, diag(nrow(pars$Sigma_spatial)))
+  C = Matrix(spatial_var * Sigma_spatial)
   
   # parameters
   n = pars$n
@@ -310,33 +313,33 @@ update_eta <- function(pars){
   
   # choose ellipse v
   U = t(chol(C))
-  b = rnorm(pars$K * n_lakes)
-  v = matrix(U%*%b, nrow = n_lakes, ncol = K)
+  b = rnorm(n_lakes)
+  v = as.matrix(U%*%b)
   
-  ll_calc <- function(eta, lake_id, lake_index, beta, K, Y, X, effort){
+  ll_calc <- function(eta, lake_id, lake_index, beta, K, Y, X, effort, W){
     
     # set up species random effect
     ind_array = data.frame(id = lake_id, eta)
     lake_array = data.frame(id = lake_index)
-    ETA = lake_array %>% right_join(ind_array, by = 'id') %>% select(-id)
+    ETA = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
     
     like = 0
     for(k in 1:K){
-      like = like + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA[,k]), log = T))
+      like = like + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + W[k]), log = T))
     }
     
     return(like)
     
   }
   
-  Ly = ll_calc(eta, lake_id, lake_index, beta, K, Y, X, effort) + log(runif(1))
+  Ly = ll_calc(eta, lake_id, lake_index, beta, K, Y, X, effort, W) + log(runif(1))
   
   theta = runif(1, 0, 2*pi)
   theta_max = theta
   theta_min = theta_max - 2*pi
   
   eta_prop = eta*cos(theta) + v*sin(theta)
-  curr_like = ll_calc(eta_prop, lake_id, lake_index, beta, K, Y, X, effort)
+  curr_like = ll_calc(eta_prop, lake_id, lake_index, beta, K, Y, X, effort, W)
   
   while(curr_like < Ly){
     
@@ -347,17 +350,68 @@ update_eta <- function(pars){
     }
     
     theta = runif(1, theta_min, theta_max)
-    # c(theta, theta_min, theta_max)
-    # theta_max = theta
-    # theta_min = theta_max - 2*pi
     
     eta_prop = eta*cos(theta) + v*sin(theta)
-    curr_like = ll_calc(eta_prop, lake_id, lake_index, beta, K, Y, X, effort)
+    curr_like = ll_calc(eta_prop, lake_id, lake_index, beta, K, Y, X, effort, W)
     
   }
   
   pars$eta = eta_prop
 
+  return(pars)
+  
+  
+}
+
+update_w <- function(pars){
+  
+  # data
+  Y = pars$Y
+  X = pars$X
+  beta = pars$beta
+  effort = pars$effort
+  eta = pars$eta
+  
+  Sigma_species = pars$Sigma_species
+  
+  # parameters
+  n = pars$n
+  p = pars$p
+  K = pars$K
+  
+  # indexing
+  lake_index = pars$lake_index
+  lake_id = pars$lake_id
+  n_lakes = pars$n_lakes
+  
+  # W monitor values
+  w_accept = array(0, dim = c(K))
+  w_curr = pars$W
+  sig_prop_w = pars$sig_prop_w
+  
+  # set up spatial random effect
+  ind_array = data.frame(id = lake_id, eta)
+  lake_array = data.frame(id = lake_index)
+  ETA = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
+  
+  # propose values
+  w_prop = rmvnorm(1, rep(0, K) , Sigma_species)
+  
+  for(k in 1:K){
+    
+    like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + w_curr[k]), log = T))
+    like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + w_prop[k]), log = T))
+    
+    if((like_prop - like_curr) > log(runif(1))){
+      w_curr[k] = w_prop[k]
+      w_accept[k] = 1
+    }
+    
+  }
+  
+  pars$W = w_curr
+  pars$W_accept = w_accept
+  
   return(pars)
   
   
