@@ -62,8 +62,10 @@ fish_dat = effort %>%
   filter(complete.cases(.)) %>% 
   filter(COMMON_NAME == 'yellow perch' | COMMON_NAME == 'northern pike' | COMMON_NAME == 'walleye' | COMMON_NAME == 'largemouth bass') %>% 
   filter(SURVEYDATE >= '2000-01-01') %>% 
+  filter(GEAR != 'GSH') %>% 
   mutate(COMMON_NAME = droplevels(COMMON_NAME),
-         DOW = droplevels(DOW)) %>% 
+         DOW = droplevels(DOW),
+         GEAR = droplevels(GEAR)) %>% 
   arrange(DOW)
 
 
@@ -165,7 +167,8 @@ create_pars <- function(fish_dat){
       select(-c(LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING, mean.gdd, MAX_DEPTH_FEET))
     Z = fish_dat %>% 
       filter(COMMON_NAME == levs[k]) %>%
-      select(EF, EW, GN, GSH, SE)
+      select(EF, EW, GN, SE)
+    # select(EF, EW, GN, GSH, SE)
     pars$X[[k]] = as.matrix(cbind(X, Z))
   }
   
@@ -181,11 +184,12 @@ create_pars <- function(fish_dat){
   
   pars$beta = array(0, dim = c(K, pars$p))
   pars$beta_accept =  array(0, dim = c(K, pars$p))
+  pars$beta_prior_var = 0.5
   
   # hyperpriors
   pars$Sigma_species = diag(K)
   pars$nu_species = K + 2
-  pars$Psi_species = 10*diag(K)
+  pars$Psi_species = 1*diag(K)
   
   # spatial parameters
   spat_dat = fish_dat %>% 
@@ -204,7 +208,7 @@ create_pars <- function(fish_dat){
   
   # pars$eta = matrix(U%*%b, nrow = n_lakes, ncol = pars$K)
   
-  pars$eta = rep(0, nrow = n_lakes)
+  pars$eta = rep(0, n_lakes)
   
   
   # species parameters
@@ -248,6 +252,7 @@ update_beta <- function(pars){
   beta_accept = array(0, dim = c(K, p))
   beta_curr = pars$beta
   sig_prop = pars$sig_prop
+  beta_prior_var = pars$beta_prior_var
   
   # set up spatial random effect
   ind_array = data.frame(id = lake_id, eta)
@@ -257,15 +262,42 @@ update_beta <- function(pars){
   # species random effect
   W = pars$W
   
+  # for(i in 1:p){
+  #   for(k in 1:K){
+  #     
+  #     b_prop = rnorm(1, beta_curr[k, i], sig_prop[k, i])
+  #     beta_prop = beta_curr
+  #     beta_prop[k,i] = b_prop
+  #     
+  #     like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_curr[k,] + ETA + W[k]), log = T)) + dnorm(beta_curr[k, i], 0, beta_prior_var)
+  #     like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_prop[k,] + ETA + W[k]), log = T)) + dnorm(b_prop, 0, beta_prior_var)
+  #     
+  #     if((like_prop - like_curr) > log(runif(1))){
+  #       beta_curr[k,i] = b_prop
+  #       beta_accept[k,i] = 1
+  #     }
+  #     
+  #   }
+  #   
+  # }
+  
+  # beta_prop = matrix(rnorm(K*p, c(beta_curr), c(sig_prop)), nrow = K, ncol = p)
+  beta_prop = beta_curr
+  
   for(i in 1:p){
     for(k in 1:K){
       
-      b_prop = rnorm(1, beta_curr[k, i], sig_prop[k, i])
-      beta_prop = beta_curr
-      beta_prop[k,i] = b_prop
+      b_prop = beta_prop[k,i] = rnorm(1, beta_curr[k,i], sig_prop[k,i])
+      b_curr = beta_curr[k,i]
       
-      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_curr[k,] + ETA + W[k]), log = T))
-      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_prop[k,] + ETA + W[k]), log = T))
+      like_curr = like_prop = 0
+      for(j in 1:K){
+        like_curr = like_curr + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[k]] %*% beta_curr[j,] + ETA + W[j]), log = T))
+        like_prop = like_prop + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[k]] %*% beta_prop[j,] + ETA + W[j]), log = T))
+      }
+      
+      like_curr = like_curr + dnorm(b_curr, 0, beta_prior_var, log = T)
+      like_prop = like_prop + dnorm(b_prop, 0, beta_prior_var, log = T)
       
       if((like_prop - like_curr) > log(runif(1))){
         beta_curr[k,i] = b_prop
@@ -297,8 +329,6 @@ update_eta <- function(pars){
   Sigma_spatial = pars$Sigma_spatial
   spatial_var = pars$spatial_var
   
-  # C = Matrix(kronecker(Sigma_species, spatial_var * Sigma_spatial))
-  
   C = Matrix(spatial_var * Sigma_spatial)
   
   # parameters
@@ -315,6 +345,11 @@ update_eta <- function(pars){
   U = t(chol(C))
   b = rnorm(n_lakes)
   v = as.matrix(U%*%b)
+  
+  # set up species random effect
+  ind_array = data.frame(id = lake_id, eta)
+  lake_array = data.frame(id = lake_index)
+  ETA = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
   
   ll_calc <- function(eta, lake_id, lake_index, beta, K, Y, X, effort, W){
     
@@ -395,13 +430,48 @@ update_w <- function(pars){
   ETA = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
   
   # propose values
-  w_prop = rmvnorm(1, rep(0, K) , Sigma_species)
+  # w_prop = rmvnorm(1, w_curr , Sigma_species)
+  # w_prop = rmvnorm(1, w_curr , diag(sig_prop_w))
+  # 
+  # for(k in 1:K){
+  #   
+  #   w_tmp = w_curr
+  #   w_tmp[k] = w_prop[k]
+  #   
+  #   like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + w_curr[k]), log = T)) + 
+  #     dmvnorm(w_curr, rep(0, K), Sigma_species, log = T)
+  #   like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + w_prop[k]), log = T)) +
+  #     dmvnorm(w_tmp, rep(0, K), Sigma_species, log = T)
+  #   
+  #   if((like_prop - like_curr) > log(runif(1))){
+  #     w_curr[k] = w_prop[k]
+  #     w_accept[k] = 1
+  #   }
+  #   
+  # }
+  
+  # beta_prop = beta_curr
+  # 
+  # for(i in 1:p){
+  #   for(k in 1:K){
+  #     
+  #     b_prop = beta_prop[k,i] = rnorm(1, beta_curr[k,i], sig_prop[k,i])
+  #     b_curr = beta_curr[k,i]
+  
+  w_prop = w_curr
   
   for(k in 1:K){
     
-    like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + w_curr[k]), log = T))
-    like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + w_prop[k]), log = T))
+    w_prop[k] = rnorm(1, w_curr[k], sig_prop_w[k])
     
+    like_curr = like_prop = 0
+    for(j in 1:K){
+      like_curr = like_curr + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[j]] %*% beta[j,] + ETA + w_curr[j]), log = T))
+      like_prop = like_prop + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[j]] %*% beta[j,] + ETA + w_prop[j]), log = T))
+    }
+    like_curr = like_curr + dnorm(w_curr[k], 0, sig_prop_w[k], log = T)
+    like_prop = like_prop + dnorm(w_prop[k], 0, sig_prop_w[k], log = T)
+
     if((like_prop - like_curr) > log(runif(1))){
       w_curr[k] = w_prop[k]
       w_accept[k] = 1
@@ -420,21 +490,19 @@ update_w <- function(pars){
 update_sigma_species <- function(pars){
   
   # data
-  Sigma_species = pars$Sigma_species
-  Sigma_spatial = pars$Sigma_spatial
+  X = pars$X
+  beta = pars$beta
   Sigma_spatial_inv = pars$Sigma_spatial_inv
   spatial_var = pars$spatial_var
   eta = pars$eta
-  
+  W = pars$W
+  K = pars$K
+
   nu_species = pars$nu_species
   Psi_species = pars$Psi_species
   
-  # parameters
-  n_lakes = pars$n_lakes
-  
-  nu_hat = nu_species + n_lakes
-  psi_hat = Psi_species + t(eta) %*% ((1/spatial_var) * Sigma_spatial_inv) %*% eta
-  # psi_hat = Psi_species + t(eta) %*% solve(spatial_var * Sigma_spatial) %*% eta
+  nu_hat = nu_species + K
+  psi_hat = Psi_species + W %*% t(W)
   
   pars$Sigma_species = MCMCpack::riwish(nu_hat, psi_hat)
   
@@ -445,17 +513,21 @@ update_sigma_species <- function(pars){
 update_spatial_var <- function(pars){
   
   # data
-  Sigma_species = pars$Sigma_species
+  X = pars$X
+  beta = pars$beta
   Sigma_spatial_inv = pars$Sigma_spatial_inv
-  eta = c(pars$eta)
+  Sigma_species = pars$Sigma_species
+  eta = pars$eta
+  W = pars$W
+  K = pars$K
   
   # parameters
   n_lakes = pars$n_lakes
   
-  nu_hat = 2 + n_lakes
-  psi_hat = 2 + eta %*% kronecker(solve(Sigma_species), Sigma_spatial_inv) %*% eta
+  a_hat = 2 + n_lakes
+  b_hat = 2 + c(t(eta) %*% Sigma_spatial_inv %*% eta)
   
-  pars$spatial_var = 1/rgamma(1, nu_hat, psi_hat)
+  pars$spatial_var = 1/rgamma(1, a_hat, b_hat)
   
   return(pars)
   
@@ -478,16 +550,36 @@ update_proposal_var <- function(pars, beta_accept_post, i, check_num = 100){
   
 }
 
+update_proposal_var_w <- function(pars, W_accept_post, i, check_num = 100){
+  
+  sig_prop = pars$sig_prop_w
+  
+  bp = W_accept_post[,(i-check_num):i]
+  accept_rate = apply(bp, c(1), mean)
+  
+  sig_prop = ifelse(accept_rate < 0.25, sig_prop*0.7, sig_prop)
+  sig_prop = ifelse(accept_rate > 0.45, sig_prop/0.7, sig_prop)
+  
+  pars$sig_prop_w = sig_prop
+  
+  return(pars)
+  
+  
+}
+
 sampler <- function(fish_dat, nits, check_num = 100){
   
   pars = create_pars(fish_dat)
   
   p = pars$p
   K = pars$K
+  n_lake = pars$n_lakes
   
   beta_post = array(NA, dim = c(K, p, nits))
   beta_accept_post = array(NA, dim = c(K, p, nits))
-  eta_post = array(NA, dim = c(dim(pars$eta), nits))
+  W_post = array(NA, dim = c(K, nits))
+  W_accept_post = array(NA, dim = c(K, nits))
+  eta_post = array(NA, dim = c(n_lake, nits))
   sigma_species_post = array(NA, dim = c(dim(pars$Sigma_species), nits))
   spatial_var_post = array(NA, dim = c(dim(pars$spatial_var), nits))
   
@@ -499,18 +591,22 @@ sampler <- function(fish_dat, nits, check_num = 100){
     
     pars <- update_beta(pars)
     pars <- update_eta(pars)
+    pars <- update_w(pars)
     pars <- update_sigma_species(pars)
     pars <- update_spatial_var(pars)
     
     beta_post[,,i] = pars$beta
     beta_accept_post[,,i] = pars$beta_accept
-    eta_post[,,i] = pars$eta
+    W_post[,i] = pars$W
+    W_accept_post[,i] = pars$W_accept
+    eta_post[,i] = pars$eta
     sigma_species_post[,,i] = pars$Sigma_species
     spatial_var_post[i] = pars$spatial_var
     
     
     if(i %in% seq(0, nits-1, by = check_num)){
       pars <- update_proposal_var(pars, beta_accept_post, i, check_num)
+      pars <- update_proposal_var_w(pars, W_accept_post, i, check_num)
     }
     
     
@@ -520,6 +616,8 @@ sampler <- function(fish_dat, nits, check_num = 100){
   
   return(list(beta = beta_post,
               beta_accept = beta_accept_post,
+              W = W_post,
+              W_accept = W_accept_post,
               sig_prop = pars$sig_prop,
               eta = eta_post,
               sigma_species = sigma_species_post,
@@ -530,7 +628,8 @@ sampler <- function(fish_dat, nits, check_num = 100){
 nits = 1000
 burnin = 1:500
 
-run = sampler(fish_dat, nits, check_num = 50)
+run = sampler(fish_dat, nits, check_num = 10)
+
 
 pars = create_pars(fish_dat)
 nms = colnames(pars$X[[1]])
@@ -584,29 +683,30 @@ round(run$sig_prop, 3)
 cbind(nms, t(apply(run$beta, c(1,2), mean)))
 
 apply(run$sigma_species, c(1,2), mean)
+cov2cor(apply(run$sigma_species, c(1,2), mean))
 plot(run$sigma_species[1, 1,-c(burnin)], type = 'l', main = nms[12])
 plot(run$sigma_species[1, 2,-c(burnin)], type = 'l', main = nms[12])
 plot(run$sigma_species[2, 1,-c(burnin)], type = 'l', main = nms[12])
 plot(run$sigma_species[2, 2,-c(burnin)], type = 'l', main = nms[12])
-sig = apply(run$sigma_species, c(1,2), mean)
+sig = apply(run$sigma_species[,,-c(burnin)], c(1,2), mean)
+cov = cov2cor(apply(run$sigma_species[,,-c(burnin)], c(1,2), mean))
 colnames(sig) = c('Pike', 'Perch')
-# write.table(sig, "results/spatial_results/dependence_mat.txt")
+write.table(sig, "results/spatial_results/dependence_mat.txt")
+write.table(cov, "results/spatial_results/correlation_mat.txt")
 
-plot(run$eta[1,1,-c(burnin)], type = 'l')
-plot(run$eta[1,2,-c(burnin)], type = 'l')
+plot(run$eta[1,-c(burnin)], type = 'l')
+plot(run$eta[2,-c(burnin)], type = 'l')
+plot(run$eta[3,-c(burnin)], type = 'l')
+plot(run$eta[4,-c(burnin)], type = 'l')
 
-plot(run$eta[2,1,-c(burnin)], type = 'l')
-plot(run$eta[2,2,-c(burnin)], type = 'l')
 
-
-plot(run$eta[1,1,-c(burnin)]*run$beta[1, 1,-c(burnin)], type = 'l')
-plot(run$eta[1,2,-c(burnin)]*run$beta[1, 2,-c(burnin)], type = 'l')
-plot(run$eta[1,3,-c(burnin)]*run$beta[1, 2,-c(burnin)], type = 'l')
-plot(run$eta[1,4,-c(burnin)]*run$beta[1, 2,-c(burnin)], type = 'l')
+plot(run$eta[1,-c(burnin)]*run$beta[1, 1,-c(burnin)], type = 'l')
+plot(run$eta[1,-c(burnin)]*run$beta[1, 2,-c(burnin)], type = 'l')
+plot(run$eta[1,-c(burnin)]*run$beta[1, 2,-c(burnin)], type = 'l')
+plot(run$eta[1,-c(burnin)]*run$beta[1, 2,-c(burnin)], type = 'l')
 
 plot(run$eta[2,1,-c(burnin)]*run$beta[1, 1,-c(burnin)], type = 'l')
 plot(run$eta[2,2,-c(burnin)]*run$beta[1, 2,-c(burnin)], type = 'l')
-
 
 mean(run$spatial_var)
 
@@ -621,27 +721,28 @@ colnames(b_hat) = nms
 int_inds = 2:3
 int_b = b_hat[,int_inds]
 
+eta_hat = apply(run$eta[,-c(burnin)], 1, mean)
+
+w_hat = apply(run$W[,-c(burnin)], 1, mean)
+
+ind_array = data.frame(id = pars$lake_id, eta_hat)
+lake_array = data.frame(id = pars$lake_index)
+ETA = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
+
 lam_hat = list()
 for(k in 1:pars$K){
-  lam_hat[[k]] = exp(pars$X[[k]][,int_inds] %*% int_b[k,])
+  lam_hat[[k]] = exp(pars$X[[k]][,int_inds] %*% int_b[k,] + ETA + w_hat[k])
 }
 
 
-
 rel_abun = tibble(lake_index = pars$lake_index, 
-                  as_tibble(matrix(unlist(pars$Y), ncol = pars$K)),
                   as_tibble(matrix(unlist(lam_hat), ncol = pars$K)),
                   .name_repair = 'unique')
-colnames(rel_abun) = c('DOW', 
-                       pars$fish_names, 
-                       paste0('Abun_', pars$fish_names))
+colnames(rel_abun) = c('DOW', pars$fish_names)
 
 rel_abun = rel_abun %>% 
   rename_all(~str_replace_all(., " ", "_")) %>% 
-  select(-c(northern_pike, yellow_perch)) %>% 
-  rename(northern_pike = Abun_northern_pike,
-         yellow_perch = Abun_yellow_perch) %>% 
-  pivot_longer(c(northern_pike, yellow_perch), names_to = 'Fish', values_to = 'Abun') %>% 
+  pivot_longer(cols = -DOW, names_to = "Fish", values_to = "Abundance") %>% 
   group_by(Fish) %>% 
   distinct(DOW, .keep_all = T) %>% 
   ungroup() %>% 
@@ -649,20 +750,7 @@ rel_abun = rel_abun %>%
               left_join(static, by = 'DOW') %>% 
               select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
               mutate(DOW = factor(DOW)) %>% 
-              distinct(DOW, .keep_all = T), by = 'DOW')  
-  
-
-spat_info = tibble(pars$lake_id, 
-                   as_tibble(apply(run$eta, c(1,2), mean)), 
-                   .name_repair = 'unique')
-colnames(spat_info) = c('DOW', str_replace_all(pars$fish_names, " ", "_"))
-
-rel_abun = rel_abun %>% 
-  right_join(spat_info) %>% 
-  pivot_longer(c(northern_pike, yellow_perch), names_to = 'Fish_spat', values_to = 'Spatial') %>% 
-  filter(Fish == Fish_spat) %>% 
-  select(-c(Fish_spat))
-
+              distinct(DOW, .keep_all = T), by = 'DOW')
 
 lats = range(rel_abun$LAKE_CENTER_LAT_DD5, na.rm = T)
 lons = range(rel_abun$LAKE_CENTER_LONG_DD5, na.rm = T)
@@ -673,7 +761,7 @@ ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_jitter(data = rel_abun, 
-              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abun),
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
               width = 0.2, height = 0.2) +
   scale_color_gradient(low = 'yellow', high = 'red') +
   xlab("Longitude") +
@@ -682,14 +770,17 @@ ggplot() +
   ggtitle("Relative Abundance") +
   facet_wrap(~Fish, 
              labeller = labeller(Fish = c('northern_pike' = 'Northern Pike',
-                                                 'yellow_perch' = 'Yellow Perch')))
+                                          'yellow_perch' = 'Yellow Perch',
+                                          'largemouth_bass' = 'Largemouth Bass',
+                                          'walleye' = 'Walleye')))
 # ggsave('results/spatial_results/relative_abun.png')
+
 
 ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_jitter(data = rel_abun %>% filter(Fish == 'northern_pike'), 
-              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abun),
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
               width = 0.2, height = 0.2) +
   scale_color_gradient(low = 'yellow', high = 'red') +
   xlab("Longitude") +
@@ -702,14 +793,42 @@ ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_jitter(data = rel_abun %>% filter(Fish == 'yellow_perch'), 
-              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abun),
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
               width = 0.2, height = 0.2) +
   scale_color_gradient(low = 'yellow', high = 'red') +
   xlab("Longitude") +
   ylab("Latitude") +
   theme(legend.title=element_blank()) +
   ggtitle("Relative Abundance - Perch")
-# ggsave('results/spatial_results/relative_abun_perch.png')
+ggsave('results/spatial_results/relative_abun_perch.png')
+
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'walleye'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Walleye")
+# ggsave('results/spatial_results/relative_abun_walleye.png')
+
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'largemouth_bass'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Bass")
+# ggsave('results/spatial_results/relative_abun_bass.png')
 
 ggplot() +
   geom_sf(data = usa) +
@@ -747,7 +866,8 @@ nms = colnames(pars$X[[1]])
 b_hat = apply(run$beta[,,-c(burnin)], c(1,2), mean)
 colnames(b_hat) = nms
 
-alpha_inds = c(1, 4:11)
+# alpha_inds = c(1, 4:11)
+alpha_inds = c(1, 4:10)
 alpha_b = b_hat[,alpha_inds]
 
 b_hat_lower = apply(run$beta[,,-c(burnin)], c(1,2), quantile, probs = c(0.025))
@@ -764,31 +884,31 @@ fish_dat_sd = fish_dat %>%
                                sd = ~sd(.)))
 
 
-d_plot = function(alpha_b, time, temp){
+d_plot = function(alpha_b, time, temp, fish_names){
   
-  TN = cbind(1, time, temp, time*temp, 0, 0, 0, 0, 0) %*% t(alpha_b)
-  EF = cbind(1, time, temp, time*temp, 1, 0, 0, 0, 0) %*% t(alpha_b)
-  EW = cbind(1, time, temp, time*temp, 0, 1, 0, 0, 0) %*% t(alpha_b)
-  GN = cbind(1, time, temp, time*temp, 0, 0, 1, 0, 0) %*% t(alpha_b)
-  GSH = cbind(1, time, temp, time*temp, 0, 0, 0, 1, 0) %*% t(alpha_b)
-  SE = cbind(1, time, temp, time*temp, 0, 0, 0, 0, 1) %*% t(alpha_b)
+  fish_names = str_replace_all(fish_names, " ", "_")
   
-  return(tibble(TN_pike = TN[,1],
-                EF_pike = EF[,1],
-                EW_pike = EW[,1],
-                GN_pike = GN[,1],
-                GSH_pike = GSH[,1],
-                SE_pike = SE[,1],
-                TN_perch = TN[,2],
-                EF_perch = EF[,2],
-                EW_perch = EW[,2],
-                GN_perch = GN[,2],
-                GSH_perch = GSH[,2],
-                SE_perch = SE[,2]))
+  TN = cbind(1, time, temp, time*temp, 0, 0, 0, 0) %*% t(alpha_b)
+  EF = cbind(1, time, temp, time*temp, 1, 0, 0, 0) %*% t(alpha_b)
+  EW = cbind(1, time, temp, time*temp, 0, 1, 0, 0) %*% t(alpha_b)
+  GN = cbind(1, time, temp, time*temp, 0, 0, 1, 0) %*% t(alpha_b)
+  SE = cbind(1, time, temp, time*temp, 0, 0, 0, 1) %*% t(alpha_b)
+  
+  colnames(TN) = paste0("TN_",fish_names)
+  colnames(EF) = paste0("EF_",fish_names)
+  colnames(EW) = paste0("EW_",fish_names)
+  colnames(GN) = paste0("GN_",fish_names)
+  colnames(SE) = paste0("SE_",fish_names)
+  
+  cnames = c(paste0("TN_",fish_names), 
+             paste0("EF_",fish_names), 
+             paste0("EW_",fish_names), 
+             paste0("GN_",fish_names), 
+             paste0("SE_",fish_names))
+  
+  
+  return(tibble(as_tibble(TN), as_tibble(EF), as_tibble(EW), as_tibble(GN), as_tibble(SE)))
 }
-
-# temps: 0.00000 16.35611 18.74775 20.74865 27.98573 
-
 tC = temp %>% 
   filter(DOW == '71016700') %>% 
   filter(year(SURVEYDATE) == '2008') %>% 
@@ -806,77 +926,26 @@ tC = temp %>%
   select(temp_0)
 
 tC = tC$temp_0
+time_len = 1:length(tC)
 
+fnames = c('bass', 'pike', 'walleye', 'perch')
 
-effective %>% 
-  mutate(Time = 1:366) %>% 
-  select(Time, TN_pike:SE_pike) %>% 
-  pivot_longer(TN_pike:SE_pike, names_to = 'Fish', values_to = 'Pike') %>% 
-  mutate(Gear = str_split(Fish, "_", simplify = T)[,1]) %>% 
-  select(-Fish) %>% 
-  left_join(effective %>% 
-              mutate(Time = 1:366) %>% 
-              select(Time, TN_perch:SE_perch) %>% 
-              pivot_longer(TN_perch:SE_perch, names_to = 'Fish', values_to = 'Perch') %>% 
-              mutate(Gear = str_split(Fish, "_", simplify = T)[,1]) %>% 
-              select(-Fish), by = c('Time', 'Gear')) %>% 
-  pivot_longer(c(Pike, Perch), names_to = 'Fish', values_to = 'Effectiveness') %>% 
-  left_join(d_plot(alpha_b_lower, (1:366 - fish_dat_sd$mean)/fish_dat_sd$sd, tC) %>% 
-              mutate(Time = 1:366) %>% 
-              select(Time, TN_pike:SE_pike) %>% 
-              pivot_longer(TN_pike:SE_pike, names_to = 'Fish', values_to = 'Pike') %>% 
-              mutate(Gear = str_split(Fish, "_", simplify = T)[,1]) %>% 
-              select(-Fish) %>% 
-  left_join(d_plot(alpha_b_lower, (1:366 - fish_dat_sd$mean)/fish_dat_sd$sd, tC) %>% 
-              mutate(Time = 1:366) %>% 
-              select(Time, TN_perch:SE_perch) %>% 
-              pivot_longer(TN_perch:SE_perch, names_to = 'Fish', values_to = 'Perch') %>% 
-              mutate(Gear = str_split(Fish, "_", simplify = T)[,1]) %>% 
-              select(-Fish), by = c('Time', 'Gear')) %>% 
-  pivot_longer(c(Pike, Perch), names_to = 'Fish', values_to = 'Effectiveness_lower'), by = c('Time', 'Gear', 'Fish')) %>% 
-  left_join(d_plot(alpha_b_upper, (1:366 - fish_dat_sd$mean)/fish_dat_sd$sd, tC) %>% 
-              mutate(Time = 1:366) %>% 
-              select(Time, TN_pike:SE_pike) %>% 
-              pivot_longer(TN_pike:SE_pike, names_to = 'Fish', values_to = 'Pike') %>% 
-              mutate(Gear = str_split(Fish, "_", simplify = T)[,1]) %>% 
-              select(-Fish) %>% 
-              left_join(d_plot(alpha_b_upper, (1:366 - fish_dat_sd$mean)/fish_dat_sd$sd, tC) %>% 
-                          mutate(Time = 1:366) %>% 
-                          select(Time, TN_perch:SE_perch) %>% 
-                          pivot_longer(TN_perch:SE_perch, names_to = 'Fish', values_to = 'Perch') %>% 
-                          mutate(Gear = str_split(Fish, "_", simplify = T)[,1]) %>% 
-                          select(-Fish), by = c('Time', 'Gear')) %>% 
-              pivot_longer(c(Pike, Perch), names_to = 'Fish', values_to = 'Effectiveness_upper'), by = c('Time', 'Gear', 'Fish')) %>% 
-  ggplot(., aes(x = Time, y = Effectiveness, color = Fish)) +
+d_plot(alpha_b, (time_len - fish_dat_sd$mean)/fish_dat_sd$sd, tC, fnames) %>% 
+  mutate(Time = time_len) %>% 
+  pivot_longer(cols = -Time, names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness") %>% 
+  left_join(d_plot(alpha_b_upper, (time_len - fish_dat_sd$mean)/fish_dat_sd$sd, tC, fnames) %>% 
+              mutate(Time = time_len) %>% 
+              pivot_longer(cols = -Time, names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_upper"), by = c('Time', 'Gear', 'Fish')) %>% 
+  left_join(d_plot(alpha_b_lower, (time_len - fish_dat_sd$mean)/fish_dat_sd$sd, tC, fnames) %>% 
+              mutate(Time = time_len) %>% 
+              pivot_longer(cols = -Time, names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_lower"), by = c('Time', 'Gear', 'Fish')) %>% 
+  ggplot(., aes(x = Time, y = Effectiveness, color = Fish, fill = Fish)) +
   geom_line(size = 1) +
+  xlim(c(150, 350)) +
   facet_wrap(~ Gear) +
   geom_ribbon(aes(ymin = Effectiveness_lower, ymax = Effectiveness_upper), alpha = 0.2) +
-  xlim(c(150, 366)) +
   ggtitle(paste0('Relative Effectiveness, ', year))
-# ggsave(paste0('results/spatial_results/effectiveness_', year, '.png'))
-
-
-  
-# effective = d_plot(alpha_b, (1:366 - fish_dat_sd$mean)/fish_dat_sd$sd, tC)
-# effective %>% 
-#   mutate(Time = 1:366) %>% 
-#   select(Time, TN_pike:SE_pike) %>% 
-#   pivot_longer(TN_pike:SE_pike, names_to = 'Fish', values_to = 'Pike') %>% 
-#   mutate(Gear = str_split(Fish, "_", simplify = T)[,1]) %>% 
-#   select(-Fish) %>% 
-#   left_join(effective %>% 
-#               mutate(Time = 1:366) %>% 
-#               select(Time, TN_perch:SE_perch) %>% 
-#               pivot_longer(TN_perch:SE_perch, names_to = 'Fish', values_to = 'Perch') %>% 
-#               mutate(Gear = str_split(Fish, "_", simplify = T)[,1]) %>% 
-#               select(-Fish), by = c('Time', 'Gear')) %>% 
-#   pivot_longer(c(Pike, Perch), names_to = 'Fish', values_to = 'Effectiveness') %>% 
-#   ggplot(., aes(x = Time, y = Effectiveness, color = Fish)) +
-#   geom_line(size = 1) +
-#   facet_wrap(~ Gear) +
-#   ylim(c(-4, 6)) +
-#   ggtitle(paste0('Relative Effectiveness, TempC5 = ', tC))
-# ggsave(paste0('results/spatial_results/temp', tC, '.png'))
+ggsave(paste0('results/spatial_results/catchability_', year, '.png'))
   
   
 
