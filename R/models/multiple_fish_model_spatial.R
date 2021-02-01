@@ -58,16 +58,15 @@ fish_dat = effort %>%
          GEAR = as.factor(GEAR),
          SURVEYDATE = mdy(SURVEYDATE),
          DOY = yday(SURVEYDATE),
-         DOY = (DOY - mean(DOY))/sd(DOY)) %>%
+         DOY = (DOY - mean(seq(1,365)))/sd(seq(1,365))) %>%
   filter(complete.cases(.)) %>% 
   filter(COMMON_NAME == 'yellow perch' | COMMON_NAME == 'northern pike' | COMMON_NAME == 'walleye' | COMMON_NAME == 'largemouth bass') %>% 
-  filter(SURVEYDATE >= '2000-01-01') %>% 
+  filter(SURVEYDATE >= '1993-01-01') %>% 
   filter(GEAR != 'GSH') %>% 
   mutate(COMMON_NAME = droplevels(COMMON_NAME),
          DOW = droplevels(DOW),
          GEAR = droplevels(GEAR)) %>% 
   arrange(DOW)
-
 
 all <- fish_dat %>% 
   group_by(SURVEYDATE, DOW) %>% 
@@ -84,15 +83,16 @@ fish_dat <- fish_dat %>%
   group_by(GEAR, SURVEYDATE, DOW) %>% 
   mutate(EFFORT = max(EFFORT)) %>%
   ungroup() %>% 
-  group_by(DOW) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:DOY), ~ max(.)) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  mutate_at(vars(MAX_DEPTH_FEET:DOY), ~ mean(.[!is.na(.) & . != 0])) %>% 
   ungroup() %>% 
   mutate(row = row_number(),
          Gear_ind = as.integer(1)) %>% 
   pivot_wider(names_from = GEAR, values_from = Gear_ind, values_fill = 0) %>% 
   select(-c(row)) %>% 
   mutate(COMMON_NAME = droplevels(COMMON_NAME),
-         DOW = droplevels(DOW)) %>% 
+         DOW = droplevels(DOW)) %>%
+  mutate(DOY = ifelse(is.na(DOY), 0, DOY)) %>% 
   arrange(DOW)
 
 
@@ -169,7 +169,20 @@ create_pars <- function(fish_dat){
       filter(COMMON_NAME == levs[k]) %>%
       select(EF, EW, GN, SE)
     # select(EF, EW, GN, GSH, SE)
-    pars$X[[k]] = as.matrix(cbind(X, Z))
+    pars$X[[k]] = as.matrix(tibble(X, Z) %>% 
+                              mutate(DOY_EF = DOY * EF,
+                                     DOY_EW = DOY * EW,
+                                     DOY_GN = DOY * GN,
+                                     DOY_SE = DOY * SE,
+                                     temp_EF = temp_0 * EF,
+                                     temp_EW = temp_0 * EW,
+                                     temp_GN = temp_0 * GN,
+                                     temp_SE = temp_0 * SE,
+                                     day_tmp_EF = day_tmp * EF,
+                                     day_tmp_EW = day_tmp * EW,
+                                     day_tmp_GN = day_tmp * GN,
+                                     day_tmp_SE = day_tmp * SE))
+    # pars$X[[k]] = as.matrix(cbind(X, Z))
   }
   
   for(k in 1:K){
@@ -184,7 +197,7 @@ create_pars <- function(fish_dat){
   
   pars$beta = array(0, dim = c(K, pars$p))
   pars$beta_accept =  array(0, dim = c(K, pars$p))
-  pars$beta_prior_var = 0.5
+  pars$beta_prior_var = 100
   
   # hyperpriors
   pars$Sigma_species = diag(K)
@@ -214,6 +227,7 @@ create_pars <- function(fish_dat){
   # species parameters
   pars$W = rep(0, pars$K)
   pars$W_accept = rep(0, pars$K)
+  pars$w_prior_var = 100
   
   # Proposal variances
   pars$sig_prop = array(0.5, dim = c(K, pars$p))
@@ -287,17 +301,26 @@ update_beta <- function(pars){
   for(i in 1:p){
     for(k in 1:K){
       
+      beta_prop = beta_curr
+      
       b_prop = beta_prop[k,i] = rnorm(1, beta_curr[k,i], sig_prop[k,i])
       b_curr = beta_curr[k,i]
       
-      like_curr = like_prop = 0
-      for(j in 1:K){
-        like_curr = like_curr + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[k]] %*% beta_curr[j,] + ETA + W[j]), log = T))
-        like_prop = like_prop + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[k]] %*% beta_prop[j,] + ETA + W[j]), log = T))
-      }
+      # like_curr = like_prop = 0
+      # for(j in 1:K){
+      #   like_curr = like_curr + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[k]] %*% beta_curr[j,] + eta[j]), log = T))
+      #   like_prop = like_prop + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[k]] %*% beta_prop[j,] + eta[j]), log = T))
+      # }
+      # 
+      # like_curr = like_curr + dnorm(b_curr, 0, beta_prior_var, log = T)
+      # like_prop = like_prop + dnorm(b_prop, 0, beta_prior_var, log = T)
       
-      like_curr = like_curr + dnorm(b_curr, 0, beta_prior_var, log = T)
-      like_prop = like_prop + dnorm(b_prop, 0, beta_prior_var, log = T)
+      
+      
+      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_curr[k,] + eta[k]), log = T)) + dnorm(b_curr, 0, beta_prior_var, log = T)
+      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_prop[k,] + eta[k]), log = T)) + dnorm(b_prop, 0, beta_prior_var, log = T)
+      
+      
       
       if((like_prop - like_curr) > log(runif(1))){
         beta_curr[k,i] = b_prop
@@ -423,6 +446,7 @@ update_w <- function(pars){
   w_accept = array(0, dim = c(K))
   w_curr = pars$W
   sig_prop_w = pars$sig_prop_w
+  w_prior_var = pars$w_prior_var
   
   # set up spatial random effect
   ind_array = data.frame(id = lake_id, eta)
@@ -464,14 +488,9 @@ update_w <- function(pars){
     
     w_prop[k] = rnorm(1, w_curr[k], sig_prop_w[k])
     
-    like_curr = like_prop = 0
-    for(j in 1:K){
-      like_curr = like_curr + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[j]] %*% beta[j,] + ETA + w_curr[j]), log = T))
-      like_prop = like_prop + sum(dpois(Y[[j]], lambda = effort[[j]]*exp(X[[j]] %*% beta[j,] + ETA + w_prop[j]), log = T))
-    }
-    like_curr = like_curr + dnorm(w_curr[k], 0, sig_prop_w[k], log = T)
-    like_prop = like_prop + dnorm(w_prop[k], 0, sig_prop_w[k], log = T)
-
+    like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + w_curr[k]), log = T)) + dnorm(w_curr[k], 0, w_prior_var, log = T)
+    like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + ETA + w_prop[k]), log = T)) + dnorm(w_prop[k], 0, w_prior_var, log = T)
+      
     if((like_prop - like_curr) > log(runif(1))){
       w_curr[k] = w_prop[k]
       w_accept[k] = 1
@@ -625,10 +644,10 @@ sampler <- function(fish_dat, nits, check_num = 100){
   
 }
 
-nits = 1000
-burnin = 1:500
+nits = 50000
+burnin = 1:25000
 
-run = sampler(fish_dat, nits, check_num = 10)
+run = sampler(fish_dat, nits, check_num = 500)
 
 
 pars = create_pars(fish_dat)
