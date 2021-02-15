@@ -100,7 +100,6 @@ fish_dat <- fish_dat %>%
   arrange(DOW)
 
 
-table(fish_dat$COMMON_NAME)
 # add temperature 
 
 temp = temp %>%
@@ -109,34 +108,15 @@ temp = temp %>%
   mutate(DOW = str_split(MNDOW_ID, '_', simplify = T)[,2]) %>%
   select(-MNDOW_ID) %>% 
   mutate(DOY = yday(SURVEYDATE)) %>% 
+  group_by(SURVEYDATE) %>% 
   mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% 
   ungroup()
 
 fish_dat = fish_dat %>% 
   inner_join(temp)
 
-
-
 rm(all)
 
-test = fish_dat %>% 
-  filter(COMMON_NAME == levs[k]) %>% 
-  mutate(Int = 1) %>% 
-  select(Int, MAX_DEPTH_FEET:DOY_cos_semi, temp_0) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:LAKE_AREA_GIS_ACRES), ~ ifelse(. == 0, . + 0.001, .)) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:LAKE_AREA_GIS_ACRES), ~ log(.)) %>% 
-  mutate_at(vars(DOY_sin:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>%
-  mutate(DOY_sin_cos_temp = (DOY_sin + DOY_cos)*temp_0,
-         DOY_sin_cos_semi_temp = (DOY_sin_semi + DOY_cos_semi)*temp_0) %>% 
-  select(-c(LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING, mean.gdd, MAX_DEPTH_FEET, Int))
-
-
-
-test %>% 
-  select(DOY, temp_0:DOY_sin_cos_semi_temp) %>% 
-  pivot_longer(temp_0:DOY_sin_cos_semi_temp, names_to = 'Metric', values_to = 'Value') %>% 
-  ggplot(., aes(x = DOY, y = Value, color = Metric)) +
-  geom_line(size = 1)
 
 
 
@@ -202,7 +182,7 @@ create_pars <- function(fish_dat){
       select(GN)
     # select(GN, GO)
     pars$X[[k]] = as.matrix(tibble(X, Z) %>% 
-                              mutate_at(vars(DOY_sin:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+                              mutate_at(vars(DOY_sin:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>%
                               select(-c(DOY_sin:DOY_cos, DOY_sin_temp:DOY_cos_temp,
                                         DOY_sin_GN:DOY_cos_GN, DOY_sin_temp_GN:DOY_cos_temp_GN)))
   }
@@ -496,8 +476,8 @@ sampler <- function(fish_dat, nits, check_num = 200){
   
 }
 
-nits = 50000
-burnin = 1:25000
+nits = 20000
+burnin = 1:10000
 thin = seq(25000, 50000, by = 100)
 
 run = sampler(fish_dat, nits, check_num = 100)
@@ -510,7 +490,7 @@ plot(run$beta_0[-c(burnin)], type = 'l')
 
 par(mfrow = c(3,5))
 for(i in 1:13){
-  plot(run$beta[1, i,-c(burnin)], type = 'l', main = nms[i])
+  plot(run$beta[6, i,-c(burnin)], type = 'l', main = nms[i])
 }
 
 
@@ -609,19 +589,52 @@ ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_jitter(data = rel_abun, 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = log(Abundance)),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Log Abundance") +
+  facet_wrap(~Fish, 
+             labeller = labeller(Fish = c('black_crappie' = 'Black Crappie',
+                                          'bluegill' = 'Bluegill',
+                                          'northern_pike' = 'Northern Pike',
+                                          'yellow_perch' = 'Yellow Perch',
+                                          'largemouth_bass' = 'Largemouth Bass',
+                                          'walleye' = 'Walleye')))
+# ggsave('results/non_spatial_results/relative_abun.png')
+
+
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'black_crappie'), 
               aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
               width = 0.2, height = 0.2) +
   scale_color_gradient(low = 'yellow', high = 'red') +
   xlab("Longitude") +
   ylab("Latitude") +
   theme(legend.title=element_blank()) +
-  ggtitle("Relative Abundance") +
-  facet_wrap(~Fish, 
-             labeller = labeller(Fish = c('northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye')))
-# ggsave('results/non_spatial_results/relative_abun.png')
+  ggtitle("Relative Abundance - Black Crappie")
+# ggsave('results/non_spatial_results/relative_abun_crappie.png')
+
+
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'bluegill'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Bluegill")
+# ggsave('results/non_spatial_results/relative_abun_bluegill.png')
+
 
 ggplot() +
   geom_sf(data = usa) +
@@ -698,27 +711,79 @@ alpha_b_upper = b_hat_upper[,alpha_inds]
 
 
 fnames = c('crappie', 'bluegill', 'bass', 'pike', 'walleye', 'perch')
+lake = '38025600'
+# 06015200 78002500 34007900 46010900
+lake = '06015200'
+
+temp_raw = read_rds('data/daily_degree_days_MN_lakes.rds') %>% ungroup()
+
+temp_raw = temp_raw %>%
+  select(date, temp_0, MNDOW_ID) %>% # C5 temperature
+  rename(SURVEYDATE = date) %>%
+  mutate(DOW = str_split(MNDOW_ID, '_', simplify = T)[,2]) %>%
+  select(-MNDOW_ID) %>% 
+  mutate(DOY = yday(SURVEYDATE)) %>% 
+  group_by(SURVEYDATE) %>% 
+  mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% 
+  ungroup()
+
+temp %>% 
+  filter(year(SURVEYDATE) == 2005) %>% 
+  group_by(SURVEYDATE) %>% 
+  summarise(mean(temp_0)) %>% 
+  ungroup()
+  filter(DOW == '06015200')
+
 
 d_plot = function(alpha_b, fish_names, year, fish_dat){
   
   fish_names = str_replace_all(fish_names, " ", "_")
   
-  tC = temp %>% 
-    filter(year(SURVEYDATE) == year) %>% 
-    group_by(SURVEYDATE) %>% 
-    summarize(temp_0 = mean(temp_0, na.rm = TRUE)) %>% 
-    ungroup() %>% 
-    select(temp_0, SURVEYDATE) %>% 
-    mutate(DOY = seq(1, length(temp_0)),
-           temp_0 = (temp_0 - mean(temp_0))/sd(temp_0))
+  # tC = temp %>%
+  #   filter(year(SURVEYDATE) == year) %>%
+  #   group_by(SURVEYDATE) %>%
+  #   summarize(temp_0 = mean(temp_0, na.rm = TRUE)) %>%
+  #   ungroup() %>%
+  #   select(temp_0, SURVEYDATE) %>%
+  #   mutate(DOY = seq(1, length(temp_0)),
+  #          temp_0 = (temp_0 - mean(temp_0))/sd(temp_0))
+  
+  tC = temp %>%
+    filter(year(SURVEYDATE) == year) %>%
+    group_by(SURVEYDATE) %>%
+    summarize(temp_0 = mean(temp_0, na.rm = TRUE)) %>%
+    ungroup() %>%
+    mutate(DOY = seq(1, length(temp_0)))
+  
+  # tC = temp_raw %>%
+  #   filter(year(date) == year) %>% 
+  #   select(date, temp_0, MNDOW_ID) %>% # C5 temperature
+  #   rename(SURVEYDATE = date) %>%
+  #   mutate(DOW = str_split(MNDOW_ID, '_', simplify = T)[,2]) %>%
+  #   select(-MNDOW_ID) %>% 
+  #   mutate(DOY = yday(SURVEYDATE)) %>% 
+  #   group_by(SURVEYDATE) %>% 
+  #   summarise(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0),
+  #             DOY = mean(DOY, na.rm = T)) %>% 
+  #   ungroup() %>% 
+  #   filter(DOY != 366)
+  # 
+  # 
+  # tC = temp %>%
+  #   filter(DOW == lake) %>%
+  #   filter(year(SURVEYDATE) == year) %>%
+  #   filter(DOY != 366) %>% 
+  #   select(-DOW)
   
   year_select = fish_dat %>% 
     filter(year(SURVEYDATE) == year) %>% 
-    select(SURVEYDATE, DOY_sin:GN, temp_0) %>% 
-    select(-c(DOY_cos, DOY_cos_semi)) %>% 
-    mutate_at(vars(DOY_sin:DOY_sin_semi), .funs = list(temp = ~.*temp_0)) %>% 
-    mutate_at(vars(DOY_sin:DOY_sin_semi, temp_0:DOY_sin_semi_temp), .funs = list(GN = ~.*GN)) %>% 
-    relocate(GN, .after = DOY_sin_semi_temp)
+    select(SURVEYDATE, DOY_sin:DOY_cos_semi, GN, temp_0) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi, temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(DOY_sin:DOY_cos, DOY_sin_temp:DOY_cos_temp,
+              DOY_sin_GN:DOY_cos_GN, DOY_sin_temp_GN:DOY_cos_temp_GN)) %>% 
+    relocate(GN, .after = DOY_cos_semi_temp)
+  
   
   gear_ind = fish_dat %>% 
     select(SURVEYDATE, EFFORT, GN:TN) %>% 
@@ -741,10 +806,10 @@ d_plot = function(alpha_b, fish_names, year, fish_dat){
     arrange(SURVEYDATE) %>% 
     mutate(GN = 0, 
            DOY = yday(SURVEYDATE),
-           DOY_sin = sin(DOY/365 * 2*pi),
-           DOY_sin_semi = sin(DOY/365 * 4*pi)) %>%
-    mutate_at(vars(DOY_sin:DOY_sin_semi), .funs = list(temp = ~.*temp_0)) %>% 
-    mutate_at(vars(DOY_sin:DOY_sin_semi, temp_0:DOY_sin_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
     select(-c(SURVEYDATE, DOY))
   
   GN_df = year_select %>% 
@@ -754,10 +819,10 @@ d_plot = function(alpha_b, fish_names, year, fish_dat){
     arrange(SURVEYDATE) %>% 
     mutate(GN = 1, 
            DOY = yday(SURVEYDATE),
-           DOY_sin = sin(DOY/365 * 2*pi),
-           DOY_sin_semi = sin(DOY/365 * 4*pi)) %>%
-    mutate_at(vars(DOY_sin:DOY_sin_semi), .funs = list(temp = ~.*temp_0)) %>% 
-    mutate_at(vars(DOY_sin:DOY_sin_semi, temp_0:DOY_sin_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
     select(-c(SURVEYDATE, DOY))
   
   TN = as.matrix(TN_df) %*% t(alpha_b)
@@ -819,6 +884,671 @@ mean %>%
   ylab('Relative Effectiveness')
 
 # ggsave(paste0('results/non_spatial_results/catchability_', year, '.png'), width = 10, height = 6)
+
+
+
+d_plot = function(alpha_b, alpha_b_upper, alpha_b_lower, fish_names, year, fish_dat){
+  
+  fish_names = str_replace_all(fish_names, " ", "_")
+  
+  tC = temp %>%
+    filter(year(SURVEYDATE) == year) %>%
+    group_by(SURVEYDATE) %>%
+    summarize(temp_0 = mean(temp_0, na.rm = TRUE)) %>%
+    ungroup() %>%
+    mutate(DOY = seq(1, length(temp_0)))
+  
+  tC_lower = temp %>%
+    filter(year(SURVEYDATE) == year) %>%
+    group_by(SURVEYDATE) %>%
+    summarize(temp_0 = quantile(temp_0, probs = 0.025, na.rm = TRUE)) %>%
+    ungroup() %>%
+    mutate(DOY = seq(1, length(temp_0)))
+  
+  tC_upper = temp %>%
+    filter(year(SURVEYDATE) == year) %>%
+    group_by(SURVEYDATE) %>%
+    summarize(temp_0 = quantile(temp_0, probs = 0.975, na.rm = TRUE)) %>%
+    ungroup() %>%
+    mutate(DOY = seq(1, length(temp_0)))
+  
+  
+  year_select = fish_dat %>% 
+    filter(year(SURVEYDATE) == year) %>% 
+    select(SURVEYDATE, DOY_sin:DOY_cos_semi, GN, temp_0) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi, temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(DOY_sin:DOY_cos, DOY_sin_temp:DOY_cos_temp,
+              DOY_sin_GN:DOY_cos_GN, DOY_sin_temp_GN:DOY_cos_temp_GN)) %>% 
+    relocate(GN, .after = DOY_cos_semi_temp)
+  
+  
+  gear_ind = fish_dat %>% 
+    select(SURVEYDATE, EFFORT, GN:TN) %>% 
+    filter(EFFORT != 0) %>% 
+    filter(year(SURVEYDATE) == year) %>% 
+    pivot_longer(GN:TN, names_to = "Gear", values_to = "Ind") %>% 
+    mutate(Gear = factor(Gear)) %>% 
+    filter(Ind == 1) %>% 
+    group_by(Gear, SURVEYDATE) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-EFFORT) %>% 
+    spread(key = Gear, value = Ind, drop = F, fill = 0)
+  
+  
+  TN_df = year_select %>% 
+    filter(GN != 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 0, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  GN_df = year_select %>% 
+    filter(GN == 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 1, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  TN_df_lower = year_select %>% 
+    filter(GN != 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC_lower, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 0, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  GN_df_lower = year_select %>% 
+    filter(GN == 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC_lower, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 1, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  TN_df_upper = year_select %>% 
+    filter(GN != 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC_upper, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 0, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  GN_df_upper = year_select %>% 
+    filter(GN == 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC_upper, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 1, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  TN = as.matrix(TN_df) %*% t(alpha_b)
+  GN = as.matrix(GN_df) %*% t(alpha_b)
+  
+  TN_lower = as.matrix(TN_df_lower) %*% t(alpha_b_lower)
+  GN_lower = as.matrix(GN_df_lower) %*% t(alpha_b_lower)
+  
+  TN_upper = as.matrix(TN_df_upper) %*% t(alpha_b_upper)
+  GN_upper = as.matrix(GN_df_upper) %*% t(alpha_b_upper)
+  
+  colnames(TN) = paste0("TN_",fish_names)
+  colnames(GN) = paste0("GN_",fish_names)
+  
+  colnames(TN_lower) = paste0("TN_",fish_names)
+  colnames(GN_lower) = paste0("GN_",fish_names)
+  
+  colnames(TN_upper) = paste0("TN_",fish_names)
+  colnames(GN_upper) = paste0("GN_",fish_names)
+  
+  cnames = c(paste0("TN_",fish_names),
+             paste0("GN_",fish_names))
+  
+  date_select = year_select %>% 
+    distinct(SURVEYDATE) %>% 
+    mutate(sample_day = SURVEYDATE) %>% 
+    right_join(tC, by = c('SURVEYDATE')) %>% 
+    left_join(gear_ind, by = c('SURVEYDATE')) %>% 
+    select(-c(temp_0, DOY)) %>% 
+    mutate_at(vars(GN:TN), ~ if_else(. == 1, SURVEYDATE, NaN)) %>% 
+    select(-sample_day) %>% 
+    arrange(SURVEYDATE) %>% 
+    rename_at(vars(-SURVEYDATE), ~ paste0(., '_survey'))
+  
+  mean = tibble(as_tibble(TN), as_tibble(GN), date_select)
+  lower = tibble(as_tibble(TN_lower), as_tibble(GN_lower), date_select)
+  upper = tibble(as_tibble(TN_upper), as_tibble(GN_upper), date_select)
+  
+  return(list(mean = mean,
+              lower = lower,
+              upper = upper))
+}
+
+year = 2000
+
+plt_dat = d_plot(alpha_b, alpha_b_upper, alpha_b_lower, fnames, year, fish_dat)
+
+
+plt_dat$mean %>% 
+  select(-c(GN_survey:TN_survey)) %>% 
+  pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness") %>% 
+  left_join(plt_dat$upper %>% select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_upper"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>% 
+  left_join(plt_dat$lower %>% select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_lower"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>%
+  left_join(plt_dat$mean %>%
+              select(SURVEYDATE:TN_survey) %>% 
+              pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "date"), by = c('Gear', 'SURVEYDATE')) %>% 
+  select(-c(sample_day)) %>% 
+  ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Gear) +
+  geom_ribbon(aes(ymin = Effectiveness_lower, ymax = Effectiveness_upper), alpha = 0.2) +
+  geom_rug(aes(x = date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(year, '-03-01')), ymd(paste0(year, '-12-01')))) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 10)) +
+  ggtitle(paste0('Gear Type Effectiveness for ', year)) +
+  xlab('Date') +
+  ylab('Relative Effectiveness')
+
+
+
+# posterior gear type effectiveness ---------------------------------------
+
+fnames = c('crappie', 'bluegill', 'bass', 'pike', 'walleye', 'perch')
+lake = '38025600'
+# 06015200 78002500 34007900 46010900
+lake = '06015200'
+
+betas = run$beta[,-c(1,2),-burnin]
+
+d_plot = function(betas, fish_names, year, fish_dat){
+  
+  fish_names = str_replace_all(fish_names, " ", "_")
+  
+  tC = temp %>%
+    filter(year(SURVEYDATE) == year) %>%
+    group_by(SURVEYDATE) %>%
+    summarize(temp_0 = mean(temp_0, na.rm = TRUE)) %>%
+    ungroup() %>%
+    mutate(DOY = seq(1, length(temp_0))) %>% 
+    filter(DOY != 366)
+  
+  year_select = fish_dat %>% 
+    filter(year(SURVEYDATE) == year) %>% 
+    select(SURVEYDATE, DOY_sin:DOY_cos_semi, GN, temp_0) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi, temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(DOY_sin:DOY_cos, DOY_sin_temp:DOY_cos_temp,
+              DOY_sin_GN:DOY_cos_GN, DOY_sin_temp_GN:DOY_cos_temp_GN)) %>% 
+    relocate(GN, .after = DOY_cos_semi_temp)
+  
+  
+  gear_ind = fish_dat %>% 
+    select(SURVEYDATE, EFFORT, GN:TN) %>% 
+    filter(EFFORT != 0) %>% 
+    filter(year(SURVEYDATE) == year) %>% 
+    pivot_longer(GN:TN, names_to = "Gear", values_to = "Ind") %>% 
+    mutate(Gear = factor(Gear)) %>% 
+    filter(Ind == 1) %>% 
+    group_by(Gear, SURVEYDATE) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-EFFORT) %>% 
+    spread(key = Gear, value = Ind, drop = F, fill = 0)
+  
+  
+  TN_df = year_select %>% 
+    filter(GN != 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 0, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  GN_df = year_select %>% 
+    filter(GN == 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 1, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  TN = as.matrix(TN_df)
+  GN = as.matrix(GN_df)
+  
+  n_runs = dim(betas)[3]
+  
+  post_stores_TN = post_stores_GN = array(NA, dim = c(nrow(tC), length(fnames), n_runs))
+  
+  for(i in 1:n_runs){
+    post_stores_TN[,,i] = TN %*% t(betas[,,i])
+    post_stores_GN[,,i] = GN %*% t(betas[,,i])
+  }
+  
+  TN = apply(post_stores_TN, c(1,2), mean)
+  TN_lower = apply(post_stores_TN, c(1,2), quantile, probs = 0.025)
+  TN_upper = apply(post_stores_TN, c(1,2), quantile, probs = 0.975)
+  
+  GN = apply(post_stores_GN, c(1,2), mean)
+  GN_lower = apply(post_stores_GN, c(1,2), quantile, probs = 0.025)
+  GN_upper = apply(post_stores_GN, c(1,2), quantile, probs = 0.975)
+  
+  colnames(TN) = paste0("TN_",fish_names)
+  colnames(GN) = paste0("GN_",fish_names)
+  
+  colnames(TN_lower) = paste0("TN_",fish_names)
+  colnames(GN_lower) = paste0("GN_",fish_names)
+  
+  colnames(TN_upper) = paste0("TN_",fish_names)
+  colnames(GN_upper) = paste0("GN_",fish_names)
+  
+  
+  date_select = year_select %>% 
+    distinct(SURVEYDATE) %>% 
+    mutate(sample_day = SURVEYDATE) %>% 
+    right_join(tC, by = c('SURVEYDATE')) %>% 
+    left_join(gear_ind, by = c('SURVEYDATE')) %>% 
+    select(-c(temp_0, DOY)) %>% 
+    mutate_at(vars(GN:TN), ~ if_else(. == 1, SURVEYDATE, NaN)) %>% 
+    select(-sample_day) %>% 
+    arrange(SURVEYDATE) %>% 
+    rename_at(vars(-SURVEYDATE), ~ paste0(., '_survey'))
+  
+  mean = tibble(as_tibble(TN), as_tibble(GN), date_select)
+  lower = tibble(as_tibble(TN_lower), as_tibble(GN_lower), date_select)
+  upper = tibble(as_tibble(TN_upper), as_tibble(GN_upper), date_select)
+  
+  return(list(mean = mean,
+              lower = lower,
+              upper = upper))
+}
+
+year = 2000
+plt_dat = d_plot(betas, fnames, year, fish_dat)
+
+plt_dat$mean %>% 
+  select(-c(GN_survey:TN_survey)) %>% 
+  pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness") %>% 
+  left_join(plt_dat$upper %>% select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_upper"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>% 
+  left_join(plt_dat$lower %>% select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_lower"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>%
+  left_join(plt_dat$mean %>%
+              select(SURVEYDATE:TN_survey) %>% 
+              pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "date"), by = c('Gear', 'SURVEYDATE')) %>% 
+  select(-c(sample_day)) %>% 
+  ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Gear) +
+  geom_ribbon(aes(ymin = Effectiveness_lower, ymax = Effectiveness_upper), alpha = 0.2) +
+  geom_rug(aes(x = date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(year, '-03-01')), ymd(paste0(year, '-12-01')))) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 10)) +
+  ggtitle(paste0('Gear Type Effectiveness for ', year)) +
+  xlab('Date') +
+  ylab('Relative Effectiveness')
+
+# ggsave(paste0('results/non_spatial_results/catchability_', year, '.png'), width = 10, height = 6)
+
+
+lake_pos = fish_dat %>% 
+  select(DOW, LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING) %>% 
+  distinct(DOW, .keep_all = T) %>% 
+  left_join(effort %>% 
+              left_join(static, by = 'DOW') %>% 
+              select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+              mutate(DOW = factor(DOW)) %>% 
+              distinct(DOW, .keep_all = T), by = 'DOW')
+
+# 16001900
+lake_pos %>% 
+  filter(LAKE_CENTER_LAT_DD5 > quantile(LAKE_CENTER_LAT_DD5, probs = 0.975)) %>% 
+  filter(LAKE_CENTER_LONG_DD5 > quantile(LAKE_CENTER_LONG_DD5, probs = 0.975))
+
+# 53002800
+lake_pos %>% 
+  filter(LAKE_CENTER_LAT_DD5 < quantile(LAKE_CENTER_LAT_DD5, probs = 0.025)) %>% 
+  filter(LAKE_CENTER_LONG_DD5 < quantile(LAKE_CENTER_LONG_DD5, probs = 0.025))
+
+
+
+d_plot_lake = function(betas, fish_names, year, fish_dat, lake_dow){
+  
+  fish_names = str_replace_all(fish_names, " ", "_")
+  
+  tC = temp %>%
+    filter(year(SURVEYDATE) == year) %>%
+    filter(DOW == lake_dow) %>% 
+    filter(DOY != 366) %>% 
+    select(-DOW)
+  
+  year_select = fish_dat %>% 
+    filter(year(SURVEYDATE) == year) %>% 
+    select(SURVEYDATE, DOY_sin:DOY_cos_semi, GN, temp_0) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi, temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(DOY_sin:DOY_cos, DOY_sin_temp:DOY_cos_temp,
+              DOY_sin_GN:DOY_cos_GN, DOY_sin_temp_GN:DOY_cos_temp_GN)) %>% 
+    relocate(GN, .after = DOY_cos_semi_temp)
+  
+  
+  gear_ind = fish_dat %>% 
+    select(SURVEYDATE, EFFORT, GN:TN) %>% 
+    filter(EFFORT != 0) %>% 
+    filter(year(SURVEYDATE) == year) %>% 
+    pivot_longer(GN:TN, names_to = "Gear", values_to = "Ind") %>% 
+    mutate(Gear = factor(Gear)) %>% 
+    filter(Ind == 1) %>% 
+    group_by(Gear, SURVEYDATE) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-EFFORT) %>% 
+    spread(key = Gear, value = Ind, drop = F, fill = 0)
+  
+  
+  TN_df = year_select %>% 
+    filter(GN != 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 0, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  GN_df = year_select %>% 
+    filter(GN == 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 1, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  TN = as.matrix(TN_df)
+  GN = as.matrix(GN_df)
+  
+  n_runs = dim(betas)[3]
+  
+  post_stores_TN = post_stores_GN = array(NA, dim = c(nrow(tC), length(fnames), n_runs))
+  
+  for(i in 1:n_runs){
+    post_stores_TN[,,i] = TN %*% t(betas[,,i])
+    post_stores_GN[,,i] = GN %*% t(betas[,,i])
+  }
+  
+  TN = apply(post_stores_TN, c(1,2), mean)
+  TN_lower = apply(post_stores_TN, c(1,2), quantile, probs = 0.025)
+  TN_upper = apply(post_stores_TN, c(1,2), quantile, probs = 0.975)
+  
+  GN = apply(post_stores_GN, c(1,2), mean)
+  GN_lower = apply(post_stores_GN, c(1,2), quantile, probs = 0.025)
+  GN_upper = apply(post_stores_GN, c(1,2), quantile, probs = 0.975)
+  
+  colnames(TN) = paste0("TN_",fish_names)
+  colnames(GN) = paste0("GN_",fish_names)
+  
+  colnames(TN_lower) = paste0("TN_",fish_names)
+  colnames(GN_lower) = paste0("GN_",fish_names)
+  
+  colnames(TN_upper) = paste0("TN_",fish_names)
+  colnames(GN_upper) = paste0("GN_",fish_names)
+  
+  
+  date_select = year_select %>% 
+    distinct(SURVEYDATE) %>% 
+    mutate(sample_day = SURVEYDATE) %>% 
+    right_join(tC, by = c('SURVEYDATE')) %>% 
+    left_join(gear_ind, by = c('SURVEYDATE')) %>% 
+    select(-c(temp_0, DOY)) %>% 
+    mutate_at(vars(GN:TN), ~ if_else(. == 1, SURVEYDATE, NaN)) %>% 
+    select(-sample_day) %>% 
+    arrange(SURVEYDATE) %>% 
+    rename_at(vars(-SURVEYDATE), ~ paste0(., '_survey'))
+  
+  mean = tibble(as_tibble(TN), as_tibble(GN), date_select)
+  lower = tibble(as_tibble(TN_lower), as_tibble(GN_lower), date_select)
+  upper = tibble(as_tibble(TN_upper), as_tibble(GN_upper), date_select)
+  
+  return(list(mean = mean,
+              lower = lower,
+              upper = upper))
+}
+
+betas = run$beta[,-c(1,2),-burnin]
+year = 2015
+lake_dow = 53002800 # south
+# lake_dow = 16001900 # north
+plt_dat = d_plot_lake(betas, fnames, year, fish_dat, lake_dow)
+
+
+plt_dat$mean %>% 
+  select(-c(GN_survey:TN_survey)) %>% 
+  pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness") %>% 
+  left_join(plt_dat$upper %>% select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_upper"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>% 
+  left_join(plt_dat$lower %>% select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_lower"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>%
+  left_join(plt_dat$mean %>%
+              select(SURVEYDATE:TN_survey) %>% 
+              pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "date"), by = c('Gear', 'SURVEYDATE')) %>% 
+  select(-c(sample_day)) %>% 
+  ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Gear) +
+  geom_ribbon(aes(ymin = Effectiveness_lower, ymax = Effectiveness_upper), alpha = 0.2) +
+  geom_rug(aes(x = date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(year, '-03-01')), ymd(paste0(year, '-12-01')))) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 10)) +
+  ggtitle(paste0('Gear Type Effectiveness for ', year)) +
+  xlab('Date') +
+  ylab('Relative Effectiveness')
+
+# ggsave(paste0('results/non_spatial_results/catchability_north_lake', year, '.png'), width = 10, height = 6)
+ggsave(paste0('results/non_spatial_results/catchability_south_lake', year, '.png'), width = 10, height = 6)
+
+
+# compare north and south lakes -------------------------------------------
+
+
+# 16001900
+lake_pos %>% 
+  filter(LAKE_CENTER_LAT_DD5 > quantile(LAKE_CENTER_LAT_DD5, probs = 0.975)) %>% 
+  filter(LAKE_CENTER_LONG_DD5 > quantile(LAKE_CENTER_LONG_DD5, probs = 0.975))
+
+# 53002800
+lake_pos %>% 
+  filter(LAKE_CENTER_LAT_DD5 < quantile(LAKE_CENTER_LAT_DD5, probs = 0.025)) %>% 
+  filter(LAKE_CENTER_LONG_DD5 < quantile(LAKE_CENTER_LONG_DD5, probs = 0.025))
+
+
+d_plot_lake_year = function(betas, fish_names, year, fish_dat, lake_dow){
+  
+  fish_names = str_replace_all(fish_names, " ", "_")
+  
+  tC = temp %>%
+    filter(DOW == lake_dow) %>% 
+    filter(DOY != 366) %>% 
+    group_by(DOY) %>% 
+    summarize(temp_0 = mean(temp_0)) %>% 
+    ungroup() %>% 
+    mutate(SURVEYDATE = as.Date(DOY, origin = paste0(year,"-01-01")))
+  
+  year_select = fish_dat %>% 
+    filter(year(SURVEYDATE) == year) %>% 
+    select(SURVEYDATE, DOY_sin:DOY_cos_semi, GN, temp_0) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin:DOY_cos_semi, temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(DOY_sin:DOY_cos, DOY_sin_temp:DOY_cos_temp,
+              DOY_sin_GN:DOY_cos_GN, DOY_sin_temp_GN:DOY_cos_temp_GN)) %>% 
+    relocate(GN, .after = DOY_cos_semi_temp)
+  
+  
+  gear_ind = fish_dat %>% 
+    select(SURVEYDATE, EFFORT, GN:TN) %>% 
+    filter(EFFORT != 0) %>% 
+    filter(year(SURVEYDATE) == year) %>% 
+    pivot_longer(GN:TN, names_to = "Gear", values_to = "Ind") %>% 
+    mutate(Gear = factor(Gear)) %>% 
+    filter(Ind == 1) %>% 
+    group_by(Gear, SURVEYDATE) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-EFFORT) %>% 
+    spread(key = Gear, value = Ind, drop = F, fill = 0)
+  
+  
+  TN_df = year_select %>% 
+    filter(GN != 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 0, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  GN_df = year_select %>% 
+    filter(GN == 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 1, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi)) %>%
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi), .funs = list(temp = ~.*temp_0)) %>% 
+    mutate_at(vars(DOY_sin_semi:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  TN = as.matrix(TN_df)
+  GN = as.matrix(GN_df)
+  
+  n_runs = dim(betas)[3]
+  
+  post_stores_TN = post_stores_GN = array(NA, dim = c(nrow(tC), length(fnames), n_runs))
+  
+  for(i in 1:n_runs){
+    post_stores_TN[,,i] = TN %*% t(betas[,,i])
+    post_stores_GN[,,i] = GN %*% t(betas[,,i])
+  }
+  
+  TN = apply(post_stores_TN, c(1,2), mean)
+  GN = apply(post_stores_GN, c(1,2), mean)
+  
+  colnames(TN) = paste0("TN_",fish_names)
+  colnames(GN) = paste0("GN_",fish_names)
+  
+  
+  date_select = year_select %>% 
+    distinct(SURVEYDATE) %>% 
+    mutate(sample_day = SURVEYDATE) %>% 
+    right_join(tC, by = c('SURVEYDATE')) %>% 
+    left_join(gear_ind, by = c('SURVEYDATE')) %>% 
+    select(-c(temp_0, DOY)) %>% 
+    mutate_at(vars(GN:TN), ~ if_else(. == 1, SURVEYDATE, NaN)) %>% 
+    select(-sample_day) %>% 
+    arrange(SURVEYDATE) %>% 
+    rename_at(vars(-SURVEYDATE), ~ paste0(., '_survey'))
+  
+  mean = tibble(as_tibble(TN), as_tibble(GN), date_select)
+  
+  return(mean)
+}
+
+betas = run$beta[,-c(1,2),-burnin]
+year = 2014
+lake_dow_south = 53002800 # south
+lake_dow_north = 16001900 # north
+plt_dat_south = d_plot_lake_year(betas, fnames, year, fish_dat, lake_dow_south)
+plt_dat_north = d_plot_lake_year(betas, fnames, year, fish_dat, lake_dow_north)
+
+
+plt_dat_south %>% 
+  select(-c(GN_survey:TN_survey)) %>% 
+  pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_South") %>% 
+  left_join(plt_dat_north %>% 
+              select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_North"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>% 
+  pivot_longer(cols = -c(SURVEYDATE:Fish), names_to = c("Type", "Lake"), names_sep = "_", values_to = "Effectiveness") %>% 
+  select(-Type) %>% 
+  left_join(plt_dat_south %>%
+            select(SURVEYDATE:TN_survey) %>% 
+            pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "date"), by = c('Gear', 'SURVEYDATE')) %>% 
+  select(-sample_day) %>% 
+  ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
+  geom_line(aes(linetype = Lake), size = 1.2) +
+  facet_wrap(~ Gear) +
+  geom_rug(aes(x = date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(year, '-05-01')), ymd(paste0(year, '-10-01')))) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 10)) +
+  ggtitle(paste0('Gear Type Effectiveness for a North and South lake')) +
+  xlab('Date') +
+  ylab('Relative Effectiveness')
+
+ggsave(paste0('results/non_spatial_results/catchability_lake_comp.png'), width = 10, height = 6)
+
+
+
+
+
+
+
+
+
 
 
 
