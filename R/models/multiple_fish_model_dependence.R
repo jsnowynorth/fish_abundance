@@ -36,7 +36,8 @@ library(stringr)
 
 static = read_csv('data/Static_MN_Data_JE.csv')
 effort = read_csv('data/MN_fish_catch_effort_all_lakes_years_surveys_JE.csv')
-temp = read_rds('data/daily_degree_days_MN_lakes.rds') %>% ungroup()
+# temp = read_rds('data/daily_degree_days_MN_lakes.rds') %>% ungroup()
+temp = read_rds('data/daily_degree_days_MN_lakes_glm2.rds') %>% ungroup()
 
 
 # join data ---------------------------------------------------------------

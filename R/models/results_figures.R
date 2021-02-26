@@ -1,11 +1,11 @@
 ##----------------------------------------------------
 ## Name: Joshua North
 ##
-## Date: 11/30/2020
+## Date: 02/18/2021
 ##
 ## Project: Fish Abundance
 ##
-## Objective: Simple Poisson model for all species, no time, elliptical slice sampler
+## Objective: Look at posterior chains and create figures
 ##
 ## Notes:
 ##
@@ -13,7 +13,8 @@
 
 
 
-# load libraries ----------------------------------------------------------
+# libraries ---------------------------------------------------------------
+
 
 library(tidyverse)
 library(lubridate)
@@ -30,6 +31,11 @@ library(sparklyr)
 library(stringr)
 
 
+# load chains ---------------------------------------------------------------
+
+full_model = read_rds('/Users/joshuanorth/Desktop/full_model.rds')
+# no_seasonal = read_rds('/Users/joshuanorth/Desktop/no_seasonal.rds')
+# no_gears = read_rds('/Users/joshuanorth/Desktop/no_gears.rds')
 
 
 # load in data ------------------------------------------------------------
@@ -121,39 +127,10 @@ temp = temp %>%
 fish_dat = fish_dat %>% 
   inner_join(temp)
 
-# rm(all)
 
 
 
-
-# proportion of gear type by species --------------------------------------
-
-effort %>% 
-  left_join(static, by = 'DOW') %>%
-  select(DOW, COMMON_NAME, TOTAL_CATCH, EFFORT, GEAR, SURVEYDATE, MAX_DEPTH_FEET, mean.gdd, LAKE_AREA_GIS_ACRES, secchi.m, LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING) %>%
-  mutate(DOW = as.factor(DOW),
-         COMMON_NAME = as.factor(COMMON_NAME),
-         GEAR = as.factor(GEAR),
-         SURVEYDATE = mdy(SURVEYDATE),
-         DOY = yday(SURVEYDATE),
-         DOY = (DOY - mean(seq(1,365)))/sd(seq(1,365))) %>%
-  filter(complete.cases(.)) %>% 
-  filter(SURVEYDATE >= '1993-01-01') %>% 
-  mutate(COMMON_NAME = droplevels(COMMON_NAME),
-         DOW = droplevels(DOW),
-         GEAR = droplevels(GEAR)) %>% 
-  arrange(DOW) %>% 
-  mutate(year = year(SURVEYDATE)) %>% 
-  select(year, COMMON_NAME, GEAR) %>% 
-  group_by(year, COMMON_NAME, GEAR) %>% 
-  summarise(count = n()) %>% 
-  ungroup() %>% 
-  pivot_wider(names_from = GEAR, values_from = count, values_fill = NA)
-
-
-
-
-# simple model ------------------------------------------------------------
+# create_parameters -------------------------------------------------------
 
 create_pars <- function(fish_dat){
   
@@ -369,353 +346,34 @@ create_pars_no_gears <- function(fish_dat){
   return(pars)
   
 }
-
-update_beta <- function(pars){
-  
-  # data
-  Y = pars$Y
-  X = pars$X
-  effort = pars$effort
-  omega = pars$omega
-  
-  # parameters
-  n = pars$n
-  p = pars$p
-  K = pars$K
-  
-  # beta monitor values
-  beta_accept = array(0, dim = c(K, p))
-  beta_curr = pars$beta
-  sig_prop = pars$sig_prop
-  beta_prior_var = pars$beta_prior_var
-  
-  # beta_0 monitor
-  beta_0 = pars$beta_0
-  beta_0_accept = 0
-  beta_0_prior_var = pars$beta_0_prior_var
-  sig_prop_beta_0 = pars$sig_prop_beta_0
-  
-  # beta_0
-  
-  b_prop = rnorm(1, beta_0, sig_prop_beta_0)
-  
-  like_curr = like_prop = 0
-  for(k in 1:K){
-    like_curr = like_curr + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(beta_0 + X[[k]] %*% beta_curr[k,] + omega[k]), log = T)) + dnorm(beta_0, 0, sig_prop_beta_0, log = T)
-    like_prop = like_prop + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(b_prop + X[[k]] %*% beta_curr[k,] + omega[k]), log = T)) + dnorm(b_prop, 0, sig_prop_beta_0, log = T)
-  }
-  # if(is.na(like_prop) | is.na(like_curr)){print(b_prop, beta_0, beta_curr)}
-  if((like_prop - like_curr) > log(runif(1))){
-    beta_0 = b_prop
-    beta_0_accept = 1
-  }
-  
-  # all other betas
-  for(i in 1:p){
-    for(k in 1:K){
-      
-      beta_prop = beta_curr
-      
-      b_prop = beta_prop[k,i] = rnorm(1, beta_curr[k,i], sig_prop[k,i])
-      b_curr = beta_curr[k,i]
-      
-      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(beta_0 + X[[k]] %*% beta_curr[k,] + omega[k]), log = T)) + dnorm(b_curr, 0, beta_prior_var, log = T)
-      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(beta_0 + X[[k]] %*% beta_prop[k,] + omega[k]), log = T)) + dnorm(b_prop, 0, beta_prior_var, log = T)
-      
-      # if(is.na(like_prop) | is.na(like_curr)){print(b_prop, beta_0, beta_curr)}
-      if((like_prop - like_curr) > log(runif(1))){
-        beta_curr[k,i] = b_prop
-        beta_accept[k,i] = 1
-      }
-      
-    }
-    
-  }
-  
-  pars$beta_0 = beta_0
-  pars$beta_0_accept = beta_0_accept
-  pars$beta = beta_curr
-  pars$beta_accept = beta_accept
-  
-  return(pars)
-  
-  
-}
-
-ll_calc <- function(Y, effort, beta_0, X, beta, omega, K){
-  ll = 0
-  for(k in 1:K){
-    ll = ll + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(beta_0 + X[[k]] %*% beta[k,] + omega[k]), log = T))
-  }
-  return(ll)
-}
-
-update_omega <- function(pars){
-  
-  # data
-  Y = pars$Y
-  X = pars$X
-  effort = pars$effort
-  beta_0 = pars$beta_0
-  beta = pars$beta
-  omega = pars$omega
-  Sigma_species = pars$Sigma_species
-  
-  # parameters
-  n = pars$n
-  p = pars$p
-  K = pars$K
-  
-  # choose ellipse
-  nu = rmvnorm(1, rep(0, K), Sigma_species)
-  nu = nu - mean(nu)
-  
-  # ll threshold
-  logy = ll_calc(Y, effort, beta_0, X, beta, omega, K) + log(runif(1))
-  
-  # draw initial proposal
-  theta = runif(1, 0, 2*pi)
-  theta_min = theta - 2*pi
-  theta_max = theta
-  
-  f_proposal = omega * cos(theta) + nu * sin(theta)
-  logf = ll_calc(Y, effort, beta_0, X, beta, f_proposal, K)
-  
-  if(logf > logy){
-    keeper = f_proposal
-  }else{
-    
-    while(logf < logy){
-      if(theta < 0){
-        theta_min = theta
-      }else{
-        theta_max = theta
-      }
-      theta = runif(1, theta_min, theta_max)
-      f_proposal = omega * cos(theta) + nu * sin(theta)
-      logf = ll_calc(Y, effort, beta_0, X, beta, f_proposal, K)
-    }
-    
-    keeper = f_proposal
-    
-  }
-  
-  
-  pars$omega = keeper
-  
-  return(pars)
-  
-  
-}
-
-update_sigma_species <- function(pars){
-  
-  # data
-  Sigma_species = pars$Sigma_species
-  omega = pars$omega
-  
-  nu_species = pars$nu_species
-  Psi_species = pars$Psi_species
-  
-  # parameters
-  K = pars$K
-  
-  nu_hat = nu_species + K
-  psi_hat = Psi_species + t(omega) %*% omega
-  
-  pars$Sigma_species = MCMCpack::riwish(nu_hat, psi_hat)
-  
-  return(pars)
-  
-}
-
-update_proposal_var <- function(pars, beta_accept_post, i, check_num){
-  
-  sig_prop = pars$sig_prop
-  
-  bp = beta_accept_post[,,(i-check_num+1):i]
-  accept_rate = apply(bp, c(1,2), mean)
-  
-  sig_prop = ifelse(accept_rate < 0.2, sig_prop*0.9, sig_prop)
-  sig_prop = ifelse(accept_rate > 0.45, sig_prop/0.9, sig_prop)
-  
-  pars$sig_prop = sig_prop
-  
-  return(pars)
-  
-  
-}
-
-update_proposal_var_beta_0 <- function(pars, beta_0_accept_post, i, check_num){
-  
-  sig_prop = pars$sig_prop_beta_0
-  
-  accept_rate = mean(beta_0_accept_post[(i-check_num+1):i])
-  
-  if(accept_rate < 0.2){
-    sig_prop = sig_prop*0.9
-  }else if(accept_rate > 0.45){
-    sig_prop = sig_prop/0.9
-  }else{
-    sig_prop = sig_prop
-  }
-  
-  pars$sig_prop_beta_0 = sig_prop
-  
-  return(pars)
-  
-  
-}
-
-sampler <- function(fish_dat, nits, check_num = 200){
-  
-  pars = create_pars(fish_dat)
-  # pars = create_pars_no_season(fish_dat)
-  # pars = create_pars_no_gears(fish_dat)
-  
-  p = pars$p
-  K = pars$K
-  
-  beta_post = array(NA, dim = c(K, p, nits))
-  beta_accept_post = array(NA, dim = c(K, p, nits))
-  beta_0_post = array(NA, dim = c(nits))
-  beta_0_accept_post = array(NA, dim = c(nits))
-  omega_post = array(NA, dim = c(length(pars$omega), nits))
-  sigma_species_post = array(NA, dim = c(dim(pars$Sigma_species), nits))
-  
-  pb <- progress_bar$new(
-    format = "  Running [:bar] :percent eta: :eta",
-    total = nits, clear = FALSE, width = 60)
-  
-  for(i in seq(1, nits)){
-    
-    pars <- update_beta(pars)
-    pars <- update_omega(pars)
-    pars <- update_sigma_species(pars)
-    
-    beta_post[,,i] = pars$beta
-    beta_accept_post[,,i] = pars$beta_accept
-    beta_0_post[i] = pars$beta_0
-    beta_0_accept_post[i] = pars$beta_0_accept
-    omega_post[,i] = pars$omega
-    sigma_species_post[,,i] = pars$Sigma_species
-    
-    
-    if(i %in% seq(0, nits-1, by = check_num)){
-      pars <- update_proposal_var(pars, beta_accept_post, i, check_num)
-      pars <- update_proposal_var_beta_0(pars, beta_0_accept_post, i, check_num)
-    }
-    
-    
-    pb$tick()
-    
-  }
-  
-  return(list(beta = beta_post,
-              beta_accept = beta_accept_post,
-              sig_prop = pars$sig_prop,
-              beta_0 = beta_0_post,
-              beta_0_accept = beta_0_accept_post,
-              sig_prop_beta_0 = pars$sig_prop_beta_0,
-              omega = omega_post,
-              sig_prop_omega = pars$sig_prop_omega,
-              sigma_species = sigma_species_post))
-  
-}
-
-nits = 30000
-burnin = 1:15000
-thin = seq(25000, 50000, by = 100)
-
-run = sampler(fish_dat, nits, check_num = 100)
-
-saveRDS(run, file = '/Users/joshuanorth/Desktop/full_model.rds')
-# saveRDS(run, file = '/Users/joshuanorth/Desktop/no_seasonal.rds')
-# saveRDS(run, file = '/Users/joshuanorth/Desktop/no_gears.rds')
-# saveRDS(run, file = '/Users/joshuanorth/Desktop/no_season_gears.rds')
-
-pars = create_pars(fish_dat)
-nms = colnames(pars$X[[1]])
-
-plot(run$beta_0[-c(burnin)], type = 'l')
-
-
-par(mfrow = c(3,5))
-for(i in 1:13){
-  plot(run$beta[6, i,-c(burnin)], type = 'l', main = nms[i])
-}
-
-
-fish_names = str_replace(pars$fish_names, " ", "_")
-for(j in 1:6){
-  plt_name = paste0('/Users/joshuanorth/Desktop/fish_plots/', fish_names[j], '.png')
-  png(plt_name, width = 1400, height = 800)
-  par(mfrow = c(3,5))
-  for(i in 1:13){
-    plot(run$beta[j, i,-c(burnin)], type = 'l', main = nms[i])
-  }
-  dev.off()
-}
-
-apply(run$beta_accept[,,-c(burnin)], c(1,2), mean)
-round(run$sig_prop, 3)
-
-cbind(nms, t(apply(run$beta, c(1,2), mean)))
-
-apply(run$omega, 1, mean)
-
-par(mfrow = c(2,3))
-plot(run$omega[1,-c(burnin)], type = 'l')
-plot(run$omega[2,-c(burnin)], type = 'l')
-plot(run$omega[3,-c(burnin)], type = 'l')
-plot(run$omega[4,-c(burnin)], type = 'l')
-plot(run$omega[5,-c(burnin)], type = 'l')
-plot(run$omega[6,-c(burnin)], type = 'l')
-
-
-
-plt_name = paste0('/Users/joshuanorth/Desktop/fish_plots/crappie_int.png')
-png(plt_name, width = 1400, height = 800)
-par(mfrow = c(2,2))
-plot(run$beta[1, 1,-c(burnin)], type = 'l', main = 'Intercept')
-plot(run$eta[1,-c(burnin)], type = 'l', main = 'Random Effect')
-plot(run$beta[1, 1,-c(burnin)] + run$eta[1,-c(burnin)], type = 'l', main = 'Intercept + Random Effect')
-dev.off()
-
-fish = 6
-par(mfrow = c(2,2))
-plot(run$beta[fish, 1,-c(burnin)], type = 'l', main = 'Intercept')
-plot(run$eta[fish,-c(burnin)], type = 'l', main = 'Random Effect')
-plot(run$beta[fish, 1,-c(burnin)] + run$eta[fish,-c(burnin)], type = 'l', main = 'Intercept + Random Effect')
-
-
-
-# relative abundance ------------------------------------------------------
+# relative abundance full model ------------------------------------------------------
 
 fish_dat %>%
   filter(EFFORT != 0) %>% 
   select(COMMON_NAME, TOTAL_CATCH) %>%
   group_by(COMMON_NAME) %>%
-  summarize(mean(TOTAL_CATCH), sd(TOTAL_CATCH), median(TOTAL_CATCH)) #range(TOTAL_CATCH), 
+  summarize(mean = mean(TOTAL_CATCH), 
+            sd = sd(TOTAL_CATCH), 
+            median = median(TOTAL_CATCH),
+            upper = quantile(TOTAL_CATCH, probs = 0.975),
+            lower = quantile(TOTAL_CATCH, probs = 0.025)) #range(TOTAL_CATCH), 
 
 
 
 pars = create_pars(fish_dat)
 nms = colnames(pars$X[[1]])
 
-b_hat = apply(run$beta[,,-c(burnin)], c(1,2), mean)
+b_hat = apply(full_model$beta[,,-c(burnin)], c(1,2), mean)
 colnames(b_hat) = nms
 
-omega_hat = apply(run$omega[,-c(burnin)], c(1), mean)
+omega_hat = apply(full_model$omega[,-c(burnin)], c(1), mean)
 
 int_inds = 1:2
 int_b = b_hat[,int_inds]
 
-b0 = mean(run$beta_0)
-
 lam_hat = list()
 for(k in 1:pars$K){
-  lam_hat[[k]] = exp(b0 + pars$X[[k]][,int_inds] %*% int_b[k,] + omega_hat[k])
+  lam_hat[[k]] = exp(pars$X[[k]][,int_inds] %*% int_b[k,] + omega_hat[k])
 }
 
 
@@ -760,6 +418,7 @@ ggplot() +
                                           'largemouth_bass' = 'Largemouth Bass',
                                           'walleye' = 'Walleye')))
 # ggsave('results/non_spatial_results/relative_abun.png')
+
 
 
 ggplot() +
@@ -845,86 +504,163 @@ ggplot() +
 
 
 
-# Relative abundance on CPUE ----------------------------------------------
+
+# relative abundance no seasonal ------------------------------------------------------
+
+fish_dat %>%
+  select(COMMON_NAME, TOTAL_CATCH) %>%
+  group_by(COMMON_NAME) %>%
+  summarize(mean = mean(TOTAL_CATCH), 
+            sd = sd(TOTAL_CATCH), 
+            median = median(TOTAL_CATCH),
+            upper = quantile(TOTAL_CATCH, probs = 0.975),
+            lower = quantile(TOTAL_CATCH, probs = 0.025))
 
 
-rel_abun %>% filter(DOW == '01000100') %>% filter(year(SURVEYDATE) == 1994)
 
-rel_abun %>% filter(DOW == '01000100') %>% filter(COMMON_NAME == 'bluegill')
+pars = create_pars_no_season(fish_dat)
+nms = colnames(pars$X[[1]])
+
+b_hat = apply(run$beta[,,-c(burnin)], c(1,2), mean)
+colnames(b_hat) = nms
+
+omega_hat = apply(run$omega[,-c(burnin)], c(1), mean)
+
+int_inds = 1:2
+int_b = b_hat[,int_inds]
+
+lam_hat = list()
+for(k in 1:pars$K){
+  lam_hat[[k]] = exp(pars$X[[k]][,int_inds] %*% int_b[k,] + omega_hat[k])
+}
+
 
 rel_abun = tibble(lake_index = pars$lake_index, 
                   as_tibble(matrix(unlist(lam_hat), ncol = pars$K)),
                   .name_repair = 'unique')
 colnames(rel_abun) = c('DOW', pars$fish_names)
 
-
 rel_abun = rel_abun %>% 
-  pivot_longer(cols = -DOW, names_to = "COMMON_NAME", values_to = "Abundance") %>% 
-  mutate(COMMON_NAME = as.factor(COMMON_NAME)) %>% 
-  group_by(COMMON_NAME) %>% 
+  rename_all(~str_replace_all(., " ", "_")) %>% 
+  pivot_longer(cols = -DOW, names_to = "Fish", values_to = "Abundance") %>% 
+  group_by(Fish) %>% 
   distinct(DOW, .keep_all = T) %>% 
   ungroup() %>% 
-  left_join(fish_dat, by = c('DOW', 'COMMON_NAME')) %>% 
   left_join(effort %>% 
               left_join(static, by = 'DOW') %>% 
               select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
               mutate(DOW = factor(DOW)) %>% 
               distinct(DOW, .keep_all = T), by = 'DOW')
 
-
 lats = range(rel_abun$LAKE_CENTER_LAT_DD5, na.rm = T)
 lons = range(rel_abun$LAKE_CENTER_LONG_DD5, na.rm = T)
 
 usa = st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
 
-
-# "black crappie"   "bluegill"        "largemouth bass" "northern pike"   "walleye"         "yellow perch" 
-pike_2014 = rel_abun %>% 
-  filter(COMMON_NAME == 'northern pike') %>% 
-  filter(year(SURVEYDATE) == 2014) %>% 
-  group_by(DOW) %>% 
-  mutate(CPUE = sum(CPUE, na.rm = T)) %>% 
-  distinct(DOW, .keep_all = T) %>% 
-  ungroup() %>% 
-  select(Abundance, CPUE, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
-  pivot_longer(c(Abundance, CPUE), names_to = 'Est', values_to = 'Abun')
-
-
-p1 = ggplot() +
-  geom_sf(data = usa) +
-  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
-  geom_point(data = pike_2014 %>% filter(Est == 'CPUE'), aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abun), size = 2) +
-  scale_color_gradient(low = 'green', high = 'purple', na.value = 'white') +
-  xlab("Longitude") +
-  ylab("Latitude") +
-  theme(legend.title=element_blank()) +
-  ggtitle("CPUE") +
-  guides(color = F)
-
-
-p2 = ggplot() +
-  geom_sf(data = usa) +
-  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
-  geom_point(data = pike_2014 %>% filter(Est == 'Abundance'), aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abun), size = 2) +
-  scale_color_gradient(low = 'green', high = 'purple', na.value = 'white') +
-  xlab("Longitude") +
-  ylab("Latitude") +
-  theme(legend.title=element_blank()) +
-  ggtitle("Relative Abundance") +
-  guides(color = F)
-
-cowplot::plot_grid(p1, p2)
-
 ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
-  geom_point(data = pike_2014, aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = log(Abun)), size = 2) +
-  scale_color_gradient(low = 'yellow', high = 'red', na.value = 'white') +
+  geom_jitter(data = rel_abun, 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = log(Abundance)),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
   xlab("Longitude") +
   ylab("Latitude") +
   theme(legend.title=element_blank()) +
   ggtitle("Relative Log Abundance") +
-  facet_wrap(~Est)
+  facet_wrap(~Fish, 
+             labeller = labeller(Fish = c('black_crappie' = 'Black Crappie',
+                                          'bluegill' = 'Bluegill',
+                                          'northern_pike' = 'Northern Pike',
+                                          'yellow_perch' = 'Yellow Perch',
+                                          'largemouth_bass' = 'Largemouth Bass',
+                                          'walleye' = 'Walleye')))
+# ggsave('results/non_spatial_results/relative_abun.png')
+
+
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'black_crappie'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Black Crappie")
+# ggsave('results/non_spatial_results/relative_abun_crappie.png')
+
+
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'bluegill'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Bluegill")
+# ggsave('results/non_spatial_results/relative_abun_bluegill.png')
+
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'northern_pike'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Pike")
+# ggsave('results/non_spatial_results/relative_abun_pike.png')
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'yellow_perch'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Perch")
+# ggsave('results/non_spatial_results/relative_abun_perch.png')
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'largemouth_bass'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Bass")
+# ggsave('results/non_spatial_results/relative_abun_bass.png')
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_jitter(data = rel_abun %>% filter(Fish == 'walleye'), 
+              aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance),
+              width = 0.2, height = 0.2) +
+  scale_color_gradient(low = 'yellow', high = 'red') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.title=element_blank()) +
+  ggtitle("Relative Abundance - Walleye")
+# ggsave('results/non_spatial_results/relative_abun_walleye.png')
+
+
 
 # effectiveness of gear ---------------------------------------------------
 
@@ -968,7 +704,7 @@ temp %>%
   group_by(SURVEYDATE) %>% 
   summarise(mean(temp_0)) %>% 
   ungroup()
-  filter(DOW == '06015200')
+filter(DOW == '06015200')
 
 
 d_plot = function(alpha_b, fish_names, year, fish_dat){
@@ -1637,16 +1373,6 @@ ggsave(paste0('results/non_spatial_results/catchability_south_lake', year, '.png
 # compare north and south lakes -------------------------------------------
 
 
-
-lake_pos = fish_dat %>% 
-  select(DOW, LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING) %>% 
-  distinct(DOW, .keep_all = T) %>% 
-  left_join(effort %>% 
-              left_join(static, by = 'DOW') %>% 
-              select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
-              mutate(DOW = factor(DOW)) %>% 
-              distinct(DOW, .keep_all = T), by = 'DOW')
-
 # 16001900
 lake_pos %>% 
   filter(LAKE_CENTER_LAT_DD5 > quantile(LAKE_CENTER_LAT_DD5, probs = 0.975)) %>% 
@@ -1663,11 +1389,11 @@ d_plot_lake_year = function(betas, fish_names, year, fish_dat, lake_dow){
   fish_names = str_replace_all(fish_names, " ", "_")
   
   tC = temp %>%
-    filter(DOW == lake_dow) %>%
-    filter(DOY != 366) %>%
-    group_by(DOY) %>%
-    summarize(temp_0 = mean(temp_0)) %>%
-    ungroup() %>%
+    filter(DOW == lake_dow) %>% 
+    filter(DOY != 366) %>% 
+    group_by(DOY) %>% 
+    summarize(temp_0 = mean(temp_0)) %>% 
+    ungroup() %>% 
     mutate(SURVEYDATE = as.Date(DOY, origin = paste0(year,"-01-01")))
   
   year_select = fish_dat %>% 
@@ -1755,9 +1481,8 @@ d_plot_lake_year = function(betas, fish_names, year, fish_dat, lake_dow){
   return(mean)
 }
 
-fnames = c('crappie', 'bluegill', 'bass', 'pike', 'walleye', 'perch')
 betas = run$beta[,-c(1,2),-burnin]
-year = 2000
+year = 2014
 lake_dow_south = 53002800 # south
 lake_dow_north = 16001900 # north
 plt_dat_south = d_plot_lake_year(betas, fnames, year, fish_dat, lake_dow_south)
@@ -1773,8 +1498,8 @@ plt_dat_south %>%
   pivot_longer(cols = -c(SURVEYDATE:Fish), names_to = c("Type", "Lake"), names_sep = "_", values_to = "Effectiveness") %>% 
   select(-Type) %>% 
   left_join(plt_dat_south %>%
-            select(SURVEYDATE:TN_survey) %>% 
-            pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "date"), by = c('Gear', 'SURVEYDATE')) %>% 
+              select(SURVEYDATE:TN_survey) %>% 
+              pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "date"), by = c('Gear', 'SURVEYDATE')) %>% 
   select(-sample_day) %>% 
   ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
   geom_line(aes(linetype = Lake), size = 1.2) +
@@ -1877,3 +1602,5 @@ effort %>%
   pivot_wider(names_from = GEAR, values_from = count, values_fill = NA)
 
 # write_csv(species_gear_count, 'results/non_spatial_results/species_gear_count.csv')
+
+
