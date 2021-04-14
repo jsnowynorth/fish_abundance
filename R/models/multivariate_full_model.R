@@ -35,6 +35,7 @@ library(Vizumap)
 library(latex2exp)
 library(ggcorrplot)
 library(corrplot)
+library(ggpubr)
 
 
 
@@ -344,12 +345,6 @@ update_beta <- function(pars){
   
   b_prop = rnorm(1, beta_0, sig_prop_beta_0)
   
-  
-  like_curr = like_prop = 0
-  for(k in 1:K){
-    like_curr = like_curr + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(beta_0 + X[[k]] %*% beta_curr[k,] + Z[[k]] %*% phi[k,] + omega[k]), log = T)) + dnorm(beta_0, 0, sig_prop_beta_0, log = T)
-    like_prop = like_prop + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(b_prop + X[[k]] %*% beta_curr[k,] + Z[[k]] %*% phi[k,] + omega[k]), log = T)) + dnorm(b_prop, 0, sig_prop_beta_0, log = T)
-  }
   
   like_curr = like_prop = 0
   for(k in 1:K){
@@ -726,6 +721,20 @@ b_names = colnames(pars$X[[1]])
 phi_names = colnames(pars$Z[[1]])
 fnames = pars$fish_names
 
+fnames = fnames %>% 
+  str_to_title()
+
+b_names = b_names %>% 
+  str_replace_all("_", " ") %>% 
+  str_to_title() %>% 
+  str_replace_all('Dd5', 'DD5') %>% 
+  str_replace_all('Gis', 'GIS')
+
+phi_names = phi_names %>% 
+  str_replace_all("_", " ") %>% 
+  str_to_title() %>% 
+  str_replace_all('Gn', 'GN')
+
 
 # relative abundance
 
@@ -812,6 +821,69 @@ rownames(cmat) = pars$fish_names
 cmat
 
 
+# covariance plot ---------------------------------------------------------
+
+cmat = cov2cor(apply(run$sigma_species[,,-burnin], c(1,2), mean))
+
+fnames = c('Crappie', 'Bluegill', 'Bass', 'Pike', 'Walleye', 'Perch')
+
+cnames = fnames
+rnames = fnames
+
+upper_mean = cmat
+upper_mean[lower.tri(upper_mean)] = 0
+upper_mean <- as_tibble(upper_mean)
+colnames(upper_mean) = seq(length(cnames),1)
+upper_mean = upper_mean %>% 
+  mutate(Row = seq(1,length(cnames))) %>%
+  pivot_longer(-Row, names_to = "Col", values_to = "Cov1")
+
+lower_mean = round(cmat, 2)
+lower_mean[upper.tri(lower_mean)] = NA
+lower_mean <- as_tibble(lower_mean)
+colnames(lower_mean) = seq(length(cnames), 1)
+lower_mean = lower_mean %>% 
+  mutate(Row = seq(1,length(cnames))) %>%
+  pivot_longer(-Row, names_to = "Col", values_to = "Cov2")
+
+fnames = tibble(name = c('Crappie', 'Bluegill', 'Bass', 'Pike', 'Walleye', 'Perch'), ind = seq(1:6))
+
+mean_complete <- upper_mean %>% 
+  left_join(lower_mean, by = c('Row', 'Col')) %>% 
+  mutate(Cov2 = sprintf( "%0.2f", Cov2)) %>% 
+  rowwise() %>% 
+  mutate(fish = fnames$name[which(Row[1] == fnames$ind)]) %>% 
+  ungroup() %>% 
+  mutate(Cov2 = ifelse(Cov2 == "NA", "", Cov2)) %>% 
+  mutate(Cov2 = ifelse(Cov2 == "1.00", fish, Cov2)) %>% 
+  select(-fish) %>% 
+  mutate(Cov1 = ifelse(Cov1 == 1, NA, Cov1))
+
+
+ggplot(data = mean_complete) +
+  geom_tile(color = "black", aes(Row, Col, fill = Cov1, width=0.95, height=0.95), size = .25) +
+  geom_text(aes(Row, Col, label = Cov2), color = "black", size = 8) +
+  scale_fill_gradientn(colors = two.colors(n = 29, start = '#053061', end = '#67001f', middle = '#f7f7f7'), limits = c(-1, 1), 
+                       guide = guide_colorbar(title = "",
+                                              title.position = "bottom",
+                                              barwidth = 25,
+                                              barheight = 2.5),
+                       na.value = 'grey80') +
+  labs(x="", y="", title="") +
+  theme_bw() + 
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        legend.position="bottom",
+        legend.box.margin=margin(-20,0,0,0),
+        legend.text=element_text(size=20))
+
+# ggsave('results/non_spatial_results/species_dependenc.png', width = 10, height = 10)
+
+
+
+
 # relative abundance plot -------------------------------------------------
 
 # run = read_rds('/Users/joshuanorth/Desktop/full_model.rds')
@@ -830,28 +902,49 @@ phi_names = colnames(pars$Z[[1]])
 b_hat = apply(run$beta[,,-c(burnin)], c(1,2), mean)
 colnames(b_hat) = b_names
 
+omega_hat = apply(run$omega[,-c(burnin)], c(1,2), mean)
+
 lam_hat = list()
 for(k in 1:pars$K){
   lam_hat[[k]] = exp(pars$X[[k]] %*% b_hat[k,] + omega_hat[k])
 }
 
 
-rel_abun = tibble(lake_index = pars$lake_index, 
-                  as_tibble(matrix(unlist(lam_hat), ncol = pars$K)),
-                  .name_repair = 'unique')
-colnames(rel_abun) = c('DOW', pars$fish_names)
+# rel_abun = tibble(lake_index = pars$lake_index, 
+#                   as_tibble(matrix(unlist(lam_hat), ncol = pars$K)),
+#                   .name_repair = 'unique')
+# colnames(rel_abun) = c('DOW', pars$fish_names)
+# 
+# 
+# rel_abun = rel_abun %>% 
+#   rename_all(~str_replace_all(., " ", "_")) %>% 
+#   pivot_longer(cols = -DOW, names_to = "Fish", values_to = "Abundance") %>% 
+#   group_by(Fish) %>% 
+#   distinct(DOW, .keep_all = T) %>% 
+#   ungroup() %>% 
+#   left_join(effort %>% 
+#               left_join(static, by = 'DOW') %>% 
+#               select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+#               mutate(DOW = factor(DOW)) %>% 
+#               distinct(DOW, .keep_all = T), by = 'DOW')
+
+
+
+rel_abun = rbind(fish_dat %>% filter(COMMON_NAME == 'black crappie') %>% mutate(Abundance = lam_hat[[1]]),
+                 fish_dat %>% filter(COMMON_NAME == 'bluegill') %>% mutate(Abundance = lam_hat[[2]]),
+                 fish_dat %>% filter(COMMON_NAME == 'largemouth bass') %>% mutate(Abundance = lam_hat[[3]]),
+                 fish_dat %>% filter(COMMON_NAME == 'northern pike') %>% mutate(Abundance = lam_hat[[4]]),
+                 fish_dat %>% filter(COMMON_NAME == 'walleye') %>% mutate(Abundance = lam_hat[[5]]),
+                 fish_dat %>% filter(COMMON_NAME == 'yellow perch') %>% mutate(Abundance = lam_hat[[6]]))
 
 rel_abun = rel_abun %>% 
-  rename_all(~str_replace_all(., " ", "_")) %>% 
-  pivot_longer(cols = -DOW, names_to = "Fish", values_to = "Abundance") %>% 
-  group_by(Fish) %>% 
-  distinct(DOW, .keep_all = T) %>% 
-  ungroup() %>% 
+  mutate(Fish = str_replace_all(COMMON_NAME, " ", "_")) %>% 
   left_join(effort %>% 
               left_join(static, by = 'DOW') %>% 
               select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
               mutate(DOW = factor(DOW)) %>% 
               distinct(DOW, .keep_all = T), by = 'DOW')
+
 
 # plot(rel_abun$bluegill ~ rel_abun$`largemouth bass`)
 
@@ -886,20 +979,146 @@ ggplot() +
 
 # ggsave('results/non_spatial_results/relative_log_abund.png', width = 12, height = 12)
 
+
+
+p1 <- ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = rel_abun %>% filter(Fish == 'black_crappie'), 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance), size = 3) +
+  scale_color_gradient(low = 'green', high = 'purple') +
+  xlab("") +
+  ylab("") +
+  ggtitle("Black Crappie") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+p2 <- ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = rel_abun %>% filter(Fish == 'bluegill'), 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance), size = 3) +
+  scale_color_gradient(low = 'green', high = 'purple') +
+  xlab("") +
+  ylab("") +
+  ggtitle("Bluegill") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+p3 <- ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = rel_abun %>% filter(Fish == 'largemouth_bass'), 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance), size = 3) +
+  scale_color_gradient(low = 'green', high = 'purple') +
+  xlab("") +
+  ylab("") +
+  ggtitle("Largemouth Bass") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+
+p4 <- ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = rel_abun %>% filter(Fish == 'northern_pike'), 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance), size = 3) +
+  scale_color_gradient(low = 'green', high = 'purple') +
+  xlab("") +
+  ylab("") +
+  ggtitle("Northern Pike") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+p5 <- ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = rel_abun %>% filter(Fish == 'walleye'), 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance), size = 3) +
+  scale_color_gradient(low = 'green', high = 'purple') +
+  xlab("") +
+  ylab("") +
+  ggtitle("Walleye") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+p6 <- ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = rel_abun %>% filter(Fish == 'yellow_perch'), 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance), size = 3) +
+  scale_color_gradient(low = 'green', high = 'purple') +
+  xlab("") +
+  ylab("") +
+  ggtitle("Yellow Perch") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+
+rel_abun_grid = cowplot::plot_grid(p1, p2, p3, p4, p5, p6, nrow = 2)
+
+ggsave('results/non_spatial_results/relative_abund.png', rel_abun_grid, width = 15, height = 10)
+
 # relative abundance by CPUE  ---------------------------------------------
 
-rel_abun = tibble(lake_index = pars$lake_index, 
-                  as_tibble(matrix(unlist(lam_hat), ncol = pars$K)),
-                  .name_repair = 'unique')
-colnames(rel_abun) = c('DOW', pars$fish_names)
+# rel_abun = tibble(lake_index = pars$lake_index, 
+#                   as_tibble(matrix(unlist(lam_hat), ncol = pars$K)),
+#                   .name_repair = 'unique')
+# colnames(rel_abun) = c('DOW', pars$fish_names)
+# 
+# rel_abun = rel_abun %>% 
+#   pivot_longer(cols = -DOW, names_to = "COMMON_NAME", values_to = "Abundance") %>% 
+#   mutate(COMMON_NAME = as.factor(COMMON_NAME)) %>% 
+#   group_by(COMMON_NAME) %>% 
+#   distinct(DOW, .keep_all = T) %>% 
+#   ungroup() %>% 
+#   left_join(fish_dat, by = c('DOW', 'COMMON_NAME')) %>% 
+#   left_join(effort %>% 
+#               left_join(static, by = 'DOW') %>% 
+#               select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+#               mutate(DOW = factor(DOW)) %>% 
+#               distinct(DOW, .keep_all = T), by = 'DOW')
+
+
+rel_abun = rbind(fish_dat %>% filter(COMMON_NAME == 'black crappie') %>% mutate(Abundance = c(lam_hat[[1]])),
+                 fish_dat %>% filter(COMMON_NAME == 'bluegill') %>% mutate(Abundance = c(lam_hat[[2]])),
+                 fish_dat %>% filter(COMMON_NAME == 'largemouth bass') %>% mutate(Abundance = c(lam_hat[[3]])),
+                 fish_dat %>% filter(COMMON_NAME == 'northern pike') %>% mutate(Abundance = c(lam_hat[[4]])),
+                 fish_dat %>% filter(COMMON_NAME == 'walleye') %>% mutate(Abundance = c(lam_hat[[5]])),
+                 fish_dat %>% filter(COMMON_NAME == 'yellow perch') %>% mutate(Abundance = c(lam_hat[[6]])))
 
 rel_abun = rel_abun %>% 
-  pivot_longer(cols = -DOW, names_to = "COMMON_NAME", values_to = "Abundance") %>% 
-  mutate(COMMON_NAME = as.factor(COMMON_NAME)) %>% 
-  group_by(COMMON_NAME) %>% 
-  distinct(DOW, .keep_all = T) %>% 
-  ungroup() %>% 
-  left_join(fish_dat, by = c('DOW', 'COMMON_NAME')) %>% 
+  mutate(Fish = str_replace_all(COMMON_NAME, " ", "_")) %>% 
   left_join(effort %>% 
               left_join(static, by = 'DOW') %>% 
               select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
@@ -915,7 +1134,6 @@ usa = st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
 
 
 cpue_rel = rel_abun %>% 
-  # filter(year(SURVEYDATE) == 2014) %>% 
   filter(CPUE < 80) %>%
   mutate(yr = year(SURVEYDATE)) %>% 
   group_by(DOW, COMMON_NAME, yr) %>% 
@@ -947,6 +1165,70 @@ ggplot(cpue_rel, aes(x = CPUE, y = Abundance)) +
 # ggsave('results/non_spatial_results/cpue_rel.png', width = 12, height = 10)
 
 
+
+# CPUE by Gear type
+cpue_rel_GN = rel_abun %>% 
+  filter(GN == 1) %>% 
+  filter(CPUE < 80) %>%
+  mutate(yr = year(SURVEYDATE)) %>% 
+  select(COMMON_NAME, Abundance, CPUE, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5)
+
+cpue_rel_TN = rel_abun %>% 
+  filter(TN == 1) %>% 
+  filter(CPUE < 80) %>%
+  mutate(yr = year(SURVEYDATE)) %>% 
+  select(COMMON_NAME, Abundance, CPUE, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5)
+
+ggplot(cpue_rel_GN, aes(x = CPUE, y = Abundance)) +
+  geom_point(size = 3) +
+  stat_cor(aes(label = ..r.label..), label.x.npc = 'center', label.y.npc = 'top', size = 10) +
+  facet_wrap(~COMMON_NAME, 
+             scales = 'free', 
+             labeller = labeller(COMMON_NAME = c('black crappie' = 'Black Crappie',
+                                                 'bluegill' = 'Bluegill',
+                                                 'largemouth bass' = 'Largemouth Bass',
+                                                 'northern pike' = 'Northern Pike',
+                                                 'walleye' = 'Walleye',
+                                                 'yellow perch' = 'Yellow Perch'))) +
+  ylab('Relative Abuncance') +
+  xlab('Catch Per Unit Effort') +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+# ggsave('results/non_spatial_results/cpue_rel_GN.png', width = 12, height = 10)
+
+
+ggplot(cpue_rel_TN, aes(x = CPUE, y = Abundance)) +
+  geom_point(size = 3) +
+  stat_cor(aes(label = ..r.label..), label.x.npc = 'center', label.y.npc = 'top', size = 10) +
+  facet_wrap(~COMMON_NAME, 
+             scales = 'free', 
+             labeller = labeller(COMMON_NAME = c('black crappie' = 'Black Crappie',
+                                                 'bluegill' = 'Bluegill',
+                                                 'largemouth bass' = 'Largemouth Bass',
+                                                 'northern pike' = 'Northern Pike',
+                                                 'walleye' = 'Walleye',
+                                                 'yellow perch' = 'Yellow Perch'))) +
+  ylab('Relative Abuncance') +
+  xlab('Catch Per Unit Effort') +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+# ggsave('results/non_spatial_results/cpue_rel_TN.png', width = 12, height = 10)
+
+
+
+# relative abundnce compared to CPUE
 cpue_rel_spat = rel_abun %>% 
   # filter(year(SURVEYDATE) == 2014) %>% 
   filter(CPUE < 80) %>%
@@ -1823,3 +2105,104 @@ plt_dat$mean %>%
 # ggsave(paste0('results/non_spatial_results/catchability_north_lake_', yr, '.png'), width = 10, height = 6)
 # ggsave(paste0('results/non_spatial_results/catchability_cental_lake_', yr, '.png'), width = 10, height = 6)
 
+
+
+### by species and gear
+dft = plt_dat_south$mean %>% 
+  select(-c(GN_survey:TN_survey)) %>% 
+  pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_South") %>% 
+  left_join(plt_dat_north$mean %>% 
+              select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_North"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>% 
+  left_join(plt_dat_center$mean %>% 
+              select(-c(GN_survey:TN_survey)) %>% 
+              pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "Effectiveness_Cetner"), by = c('SURVEYDATE', 'Gear', 'Fish')) %>% 
+  pivot_longer(cols = -c(SURVEYDATE:Fish), names_to = c("Type", "Lake"), names_sep = "_", values_to = "Effectiveness") %>% 
+  select(-Type) %>% 
+  left_join(plt_dat_south$mean %>%
+              select(SURVEYDATE:TN_survey) %>% 
+              pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "date"), by = c('Gear', 'SURVEYDATE')) %>% 
+  select(-sample_day)
+
+pa = ggplot(dft %>% filter(Fish == 'crappie' | Fish == 'bluegill' | Fish ==  'bass'), aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
+  geom_line(aes(linetype = Lake), size = 1) +
+  facet_wrap(~ Gear + Fish, ncol = 3,
+             labeller = labeller(Fish = c('crappie' = 'Black Crappie',
+                                                 'bluegill' = 'Bluegill',
+                                                 'bass' = 'Largemouth Bass',
+                                                 'pike' = 'Northern Pike',
+                                                 'walleye' = 'Walleye',
+                                                 'perch' = 'Yellow Perch'))) +
+  geom_rug(aes(x = date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr, '-04-01')), ymd(paste0(yr, '-10-01')))) +
+  scale_linetype_manual(values=c("solid", 'longdash', "dotted")) +
+  ggtitle(paste0('Gear Type Effectiveness by Region, ', yr)) +
+  xlab('') +
+  ylab('Relative Effectiveness') +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size=14)) +
+  ylim(c(-25, 25)) +
+  guides(color = F)
+
+ggsave(paste0('results/non_spatial_results/catchability_lake_comp_species_a_', yr, '.png'), pa, width = 12, height = 8)
+
+
+pb = ggplot(dft %>% filter(Fish != 'crappie' & Fish != 'bluegill' & Fish !=  'bass'), aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
+  geom_line(aes(linetype = Lake), size = 1) +
+  facet_wrap(~ Gear + Fish, ncol = 3,
+             labeller = labeller(Fish = c('crappie' = 'Black Crappie',
+                                          'bluegill' = 'Bluegill',
+                                          'bass' = 'Largemouth Bass',
+                                          'pike' = 'Northern Pike',
+                                          'walleye' = 'Walleye',
+                                          'perch' = 'Yellow Perch'))) +
+  geom_rug(aes(x = date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr, '-04-01')), ymd(paste0(yr, '-10-01')))) +
+  scale_linetype_manual(values=c("solid", 'longdash', "dotted")) +
+  ggtitle(paste0('Gear Type Effectiveness by Region, ', yr)) +
+  xlab('') +
+  ylab('Relative Effectiveness') +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size=14)) +
+  ylim(c(-25, 25)) +
+  guides(color = F)
+
+ggsave(paste0('results/non_spatial_results/catchability_lake_comp_species_b_', yr, '.png'), pb, width = 12, height = 8)
+
+
+pfull = ggplot(dft, aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
+  geom_line(aes(linetype = Lake), size = 1) +
+  facet_wrap(~ Gear + Fish, ncol = 3,
+             labeller = labeller(Fish = c('crappie' = 'Black Crappie',
+                                          'bluegill' = 'Bluegill',
+                                          'bass' = 'Largemouth Bass',
+                                          'pike' = 'Northern Pike',
+                                          'walleye' = 'Walleye',
+                                          'perch' = 'Yellow Perch'))) +
+  geom_rug(aes(x = date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr, '-04-01')), ymd(paste0(yr, '-10-01')))) +
+  scale_linetype_manual(values=c("solid", 'longdash', "dotted")) +
+  ggtitle(paste0('Gear Type Effectiveness by Region, ', yr)) +
+  xlab('') +
+  ylab('Relative Effectiveness') +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size=14)) +
+  ylim(c(-25, 25)) +
+  guides(color = F)
+
+ggsave(paste0('results/non_spatial_results/catchability_lake_comp_species_', yr, '.png'), pfull, width = 14, height = 16)

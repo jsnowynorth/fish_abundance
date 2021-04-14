@@ -36,21 +36,6 @@ library(ggcorrplot)
 library(corrplot)
 
 
-
-# load in data ------------------------------------------------------------
-
-static = read_csv('data/Static_MN_Data_JE.csv') %>% mutate(DOW = (str_pad(DOW, 8, side = "left", pad = "0")))
-
-static = static %>% 
-  select(DOW, LAKE_CENTER_LAT_DD5:LAKE_CENTER_UTM_NORTHING) %>% 
-  mutate(DOW = as.factor(DOW))
-
-
-# simulate data -----------------------------------------------------------
-
-
-
-
 # load in data ------------------------------------------------------------
 
 static = read_csv('data/Static_MN_Data_JE.csv') %>% mutate(DOW = (str_pad(DOW, 8, side = "left", pad = "0")))
@@ -178,8 +163,10 @@ colnames(fish_dat)
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:19, 25)]
 mean_covs_log = colnames(fish_dat)[c(7, 9, 13:19)]
 # catch_covs = colnames(fish_dat)[c(24, 27, 28)] # no temp doy interaction
-catch_covs = colnames(fish_dat)[c(24, 27:35)] # temp doy interaction
+# catch_covs = colnames(fish_dat)[c(24, 27:35)] # temp doy interaction
 gear_types = colnames(fish_dat)[c(21, 22)]
+catch_covs = colnames(fish_dat)[c(24, 27:30, 22, 31:35)] # temp doy interaction
+
 fish_names = levels(fish_dat$COMMON_NAME)
 
 
@@ -200,6 +187,34 @@ rownames(catch_cov_coef) = fish_names
 mean_cov_coef
 catch_cov_coef
 
+catch_cov_coef_alpha_0 = catch_cov_coef
+catch_cov_coef_alpha_0[,c(1:5, 7:11)] = 0
+
+
+# cal_gamma <- function(df, f_name){
+# 
+#   f_name = f_name$COMMON_NAME
+# 
+#   dat = df %>%
+#     ungroup() %>%
+#     select(all_of(mean_covs)) %>%
+#     as.matrix()
+# 
+#   covs = mean_cov_coef[rownames(mean_cov_coef) == f_name,]
+# 
+#   return(df %>%
+#            ungroup() %>%
+#            mutate(gamma = c(exp(dat %*% covs))))
+# }
+# 
+# Gamma = fish_dat %>%
+#   select(all_of(mean_covs), COMMON_NAME, DOW, SURVEYDATE, TN, GN, EFFORT) %>%
+#   mutate_at(vars(all_of(mean_covs_log)), ~ ifelse(. == 0, . + 0.001, .)) %>%
+#   mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>%
+#   group_by(COMMON_NAME, .drop = F) %>%
+#   group_modify(~ cal_gamma(df = .x, f_name = .y)) %>%
+#   ungroup() %>%
+#   arrange(DOW, SURVEYDATE)
 
 cal_gamma <- function(df, f_name){
   
@@ -214,7 +229,7 @@ cal_gamma <- function(df, f_name){
   
   return(df %>% 
            ungroup() %>% 
-           mutate(gamma = c(exp(dat %*% covs))))
+           mutate(gamma = c(dat %*% covs)))
 }
 
 cal_alpha <- function(df, f_name){
@@ -233,6 +248,26 @@ cal_alpha <- function(df, f_name){
            mutate(alpha = c(exp(dat %*% covs))))
 }
 
+cal_alpha_zero <- function(df, f_name){
+  
+  f_name = f_name$COMMON_NAME
+  
+  dat = df %>% 
+    ungroup() %>% 
+    select(all_of(catch_covs)) %>% 
+    as.matrix()
+  
+  covs = catch_cov_coef_alpha_0[rownames(catch_cov_coef_alpha_0) == f_name,]
+  
+  return(df %>% 
+           ungroup() %>% 
+           mutate(alpha = c(exp(dat %*% covs))))
+}
+
+
+cov_mat = matrix(c(0.2, -0.1, -0.1, 0.2), 2)
+cov_mat = matrix(c(0, 0, 0, 0), 2)
+
 Gamma = fish_dat %>% 
   select(all_of(mean_covs), COMMON_NAME, DOW, SURVEYDATE, TN, GN, EFFORT) %>% 
   mutate_at(vars(all_of(mean_covs_log)), ~ ifelse(. == 0, . + 0.001, .)) %>% 
@@ -240,8 +275,11 @@ Gamma = fish_dat %>%
   group_by(COMMON_NAME, .drop = F) %>% 
   group_modify(~ cal_gamma(df = .x, f_name = .y)) %>% 
   ungroup() %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  mutate(gamma = gamma + c(rmvnorm(1, c(0,0), cov_mat))) %>% 
+  ungroup() %>% 
+  mutate(gamma = exp(gamma)) %>% 
   arrange(DOW, SURVEYDATE)
-
 
 Alpha = fish_dat %>% 
   select(all_of(catch_covs), COMMON_NAME, DOW, SURVEYDATE, TN, GN, EFFORT) %>% 
@@ -250,28 +288,65 @@ Alpha = fish_dat %>%
   ungroup() %>% 
   arrange(DOW, SURVEYDATE)
 
-
-Lambda = Gamma %>% 
-  select(COMMON_NAME, DOW:gamma) %>% 
-  mutate(DOW = as.factor(DOW)) %>% 
-  dplyr::left_join(Alpha %>% 
-              select(COMMON_NAME, DOW:alpha) %>% 
-              mutate(DOW = as.factor(DOW))) %>% 
-  mutate(lambda = EFFORT * gamma * alpha) %>% 
-  rowwise() %>% 
-  mutate(total_catch = rpois(1, lambda)) %>% 
-  ungroup() %>% 
-  left_join(fish_dat) %>% 
+Lambda = Gamma %>%
+  filter(COMMON_NAME == 'black crappie' | COMMON_NAME == 'bluegill') %>% 
+  select(COMMON_NAME, DOW:gamma) %>%
+  mutate(DOW = as.factor(DOW)) %>%
+  dplyr::left_join(Alpha %>%
+              select(COMMON_NAME, DOW:alpha) %>%
+              mutate(DOW = as.factor(DOW))) %>%
+  mutate(lambda = EFFORT * gamma * alpha) %>%
+  rowwise() %>%
+  mutate(total_catch = rpois(1, lambda)) %>%
+  ungroup() %>%
+  left_join(fish_dat) %>%
   select(-c(TOTAL_CATCH, CPUE)) %>%
-  rename(TOTAL_CATCH = total_catch) %>% 
-  arrange(DOW, SURVEYDATE, TN)
+  rename(TOTAL_CATCH = total_catch) %>%
+  arrange(DOW, SURVEYDATE, TN) %>% 
+  mutate(COMMON_NAME = droplevels(COMMON_NAME))
 
+
+Alpha_zero = fish_dat %>% 
+  select(all_of(catch_covs), COMMON_NAME, DOW, SURVEYDATE, TN, GN, EFFORT) %>% 
+  group_by(COMMON_NAME, .drop = F) %>% 
+  group_modify(~ cal_alpha_zero(df = .x, f_name = .y)) %>% 
+  ungroup() %>% 
+  arrange(DOW, SURVEYDATE)
+
+Lambda_no_alpha = Gamma %>%
+  filter(COMMON_NAME == 'black crappie' | COMMON_NAME == 'bluegill') %>% 
+  mutate(COMMON_NAME = droplevels(COMMON_NAME)) %>% 
+  select(COMMON_NAME, DOW:gamma) %>%
+  mutate(DOW = as.factor(DOW)) %>%
+  dplyr::left_join(Alpha_zero %>%
+                     select(COMMON_NAME, DOW:alpha) %>%
+                     mutate(DOW = as.factor(DOW))) %>%
+  mutate(lambda = EFFORT * gamma * alpha) %>%
+  rowwise() %>%
+  mutate(total_catch = rpois(1, lambda)) %>%
+  ungroup() %>%
+  left_join(fish_dat) %>%
+  select(-c(TOTAL_CATCH, CPUE)) %>%
+  rename(TOTAL_CATCH = total_catch) %>%
+  arrange(DOW, SURVEYDATE, TN) %>% 
+  mutate(COMMON_NAME = droplevels(COMMON_NAME))
+
+
+# colnames(Lambda)
+# mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:19, 25)]
+# mean_covs_log = colnames(fish_dat)[c(7, 9, 13:19)]
+# catch_covs = colnames(fish_dat)[c(24, 27:30)] # temp doy interaction
+# gear_types = colnames(fish_dat)[c(21, 22)]
 
 colnames(Lambda)
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:19, 25)]
 mean_covs_log = colnames(fish_dat)[c(7, 9, 13:19)]
-catch_covs = colnames(fish_dat)[c(24, 27:30)] # temp doy interaction
+# catch_covs = colnames(fish_dat)[c(24, 27, 28)] # no temp doy interaction
+# catch_covs = colnames(fish_dat)[c(24, 27:35)] # temp doy interaction
 gear_types = colnames(fish_dat)[c(21, 22)]
+catch_covs = colnames(fish_dat)[c(24, 27:30, 22, 31:35)] # temp doy interaction
+
+fish_names = levels(Lambda$COMMON_NAME)
 
 # model -------------------------------------------------------------------
 
@@ -304,8 +379,7 @@ create_pars <- function(fish_dat, mean_covs, mean_covs_log, catch_covs){
     
     Z = fish_dat %>% 
       filter(COMMON_NAME == levs[k]) %>%
-      select(all_of(catch_covs), GN) %>% 
-      mutate_at(vars(all_of(catch_covs)), .funs = list(GN = ~.*GN))
+      select(all_of(catch_covs))
     
     pars$X[[k]] = as.matrix(X)
     pars$Z[[k]] = as.matrix(Z)
@@ -383,15 +457,7 @@ update_beta <- function(pars){
   sig_prop_beta_0 = pars$sig_prop_beta_0
   
   # beta_0
-  
   b_prop = rnorm(1, beta_0, sig_prop_beta_0)
-  
-  
-  like_curr = like_prop = 0
-  for(k in 1:K){
-    like_curr = like_curr + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(beta_0 + X[[k]] %*% beta_curr[k,] + Z[[k]] %*% phi[k,] + omega[k]), log = T)) + dnorm(beta_0, 0, sig_prop_beta_0, log = T)
-    like_prop = like_prop + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(b_prop + X[[k]] %*% beta_curr[k,] + Z[[k]] %*% phi[k,] + omega[k]), log = T)) + dnorm(b_prop, 0, sig_prop_beta_0, log = T)
-  }
   
   like_curr = like_prop = 0
   for(k in 1:K){
@@ -698,15 +764,19 @@ sampler <- function(fish_dat, mean_covs, mean_covs_log, catch_covs, nits, check_
   
 }
 
-run = sampler(Lambda, mean_covs, mean_covs_log, catch_covs, nits = 5000, check_num = 50)
+run = sampler(Lambda, mean_covs, mean_covs_log, catch_covs, nits = 50000, check_num = 100)
+# saveRDS(run, file = '/Users/joshuanorth/Desktop/sim_with_alpha.rds')
+
+run = sampler(Lambda_no_alpha, mean_covs, mean_covs_log, catch_covs, nits = 50000, check_num = 100)
+# saveRDS(run, file = '/Users/joshuanorth/Desktop/sim_without_alpha.rds')
 
 
 # chains ------------------------------------------------------------------
 
-mean_cov_coef
-catch_cov_coef
+mean_cov_coef[1:2,]
+catch_cov_coef[1:2,]
 
-burnin = 1:2500
+burnin = 1:25000
 
 round(apply(run$beta[,,-burnin], c(1,2), mean), 2)
 apply(run$beta_accept[,,-burnin], c(1,2), mean)
@@ -750,4 +820,281 @@ par(mfrow = c(2,3))
 for(i in 1:6){
   plot(run$sigma_species[i,1,], type = 'l', main = pars$fish_names[i])
 }
+
+
+# tables ------------------------------------------------------------------
+
+# spatially varying catchability ------------------------------------------
+
+# run = readRDS('/Users/joshuanorth/Desktop/sim_with_alpha.rds')
+
+
+b_true = mean_cov_coef[1:2,]
+phi_true = catch_cov_coef[1:2,]
+
+burnin = 1:25000
+
+pars <- create_pars(Lambda, mean_covs, mean_covs_log, catch_covs)
+pars <- create_pars(Lambda_no_alpha, mean_covs, mean_covs_log, catch_covs)
+b_names = colnames(pars$X[[1]])
+phi_names = colnames(pars$Z[[1]])
+fnames = c('Fish 1', 'Fish 2')
+
+b_names = b_names %>% 
+  str_replace_all("_", " ") %>% 
+  str_to_title() %>% 
+  str_replace_all('Dd5', 'DD5') %>% 
+  str_replace_all('Gis', 'GIS')
+
+phi_names = phi_names %>% 
+  str_replace_all("_", " ") %>% 
+  str_to_title() %>% 
+  str_replace_all('Gn', 'GN')
+
+colnames(b_true) = b_names
+rownames(b_true) = fnames
+
+colnames(phi_true) = phi_names
+rownames(phi_true) = fnames
+
+b_true = as_tibble(t(b_true), rownames = NA) %>% 
+  rownames_to_column(var = 'Beta')
+
+phi_true = as_tibble(t(phi_true), rownames = NA) %>% 
+  rownames_to_column(var = 'Alpha')
+
+true_vals = cbind(b_true, phi_true)
+
+print(xtable(true_vals,
+             caption = 'True parameter values for the relative abundance, beta, and catchability, alpha.'),
+      include.rownames=FALSE)
+
+
+# relative abundance
+
+b_mean = apply(run$beta[,,-burnin], c(1,2), mean)
+b_lower = apply(run$beta[,,-burnin], c(1,2), quantile, probs = 0.025)
+b_upper = apply(run$beta[,,-burnin], c(1,2), quantile, probs = 0.975)
+
+b_conf = matrix(paste0("(", round(b_lower, 3), ", ", round(b_upper, 3), ")"), nrow = 2)
+
+colnames(b_mean) = b_names
+rownames(b_mean) = fnames
+
+colnames(b_conf) = b_names
+rownames(b_conf) = fnames
+
+f1 = rbind(round(b_mean[1,], 3), b_conf[1,])
+f2 = rbind(round(b_mean[2,], 3), b_conf[2,])
+
+rownames(f1) = rownames(f2) = c('Mean', 'CI')
+
+
+f1 = as_tibble(t(f1), rownames = NA) %>% 
+  rownames_to_column(var = 'Variable')
+
+f2 = as_tibble(t(f2), rownames = NA) %>% 
+  rownames_to_column(var = 'Variable')
+
+fish_tab = f1 %>% rename('Mean Fish 1' = 'Mean',
+              'CI Fish 1' = 'CI') %>% 
+  left_join(f2 %>% rename('Mean Fish 2' = 'Mean',
+                          'CI Fish 2' = 'CI'))
+
+print(xtable(fish_tab,
+             caption = 'Posterior mean and 95\% credible intervals for the relative abundance, beta, portion of the model under the spatially varying catchability simulation scheme.'),
+      include.rownames=FALSE)
+
+
+
+# catchability
+
+
+phi_mean = apply(run$phi[,,-burnin], c(1,2), mean)
+phi_lower = apply(run$phi[,,-burnin], c(1,2), quantile, probs = 0.025)
+phi_upper = apply(run$phi[,,-burnin], c(1,2), quantile, probs = 0.975)
+
+phi_conf = matrix(paste0("(", round(phi_lower, 3), ", ", round(phi_upper, 3), ")"), nrow = 2)
+
+colnames(phi_mean) = phi_names
+rownames(phi_mean) = fnames
+
+colnames(phi_conf) = phi_names
+rownames(phi_conf) = fnames
+
+f1 = rbind(round(phi_mean[1,], 3), phi_conf[1,])
+f2 = rbind(round(phi_mean[2,], 3), phi_conf[2,])
+
+rownames(f1) = rownames(f2) = c('Mean', 'CI')
+
+f1 = as_tibble(t(f1), rownames = NA) %>% 
+  rownames_to_column(var = 'Variable')
+
+f2 = as_tibble(t(f2), rownames = NA) %>% 
+  rownames_to_column(var = 'Variable')
+
+fish_tab = f1 %>% rename('Mean Fish 1' = 'Mean',
+                         'CI Fish 1' = 'CI') %>% 
+  left_join(f2 %>% rename('Mean Fish 2' = 'Mean',
+                          'CI Fish 2' = 'CI'))
+
+print(xtable(fish_tab,
+             caption = 'Posterior mean and 95\% credible intervals for the catchability, alpha, portion of the model under the spatially varying catchability simulation scheme.'), 
+      include.rownames=FALSE)
+
+
+# constant catchability ---------------------------------------------------
+
+run = readRDS('/Users/joshuanorth/Desktop/sim_without_alpha.rds')
+
+b_true = mean_cov_coef[1:2,]
+phi_true = catch_cov_coef[1:2,]
+
+burnin = 1:25000
+
+pars <- create_pars(Lambda, mean_covs, mean_covs_log, catch_covs)
+pars <- create_pars(Lambda_no_alpha, mean_covs, mean_covs_log, catch_covs)
+b_names = colnames(pars$X[[1]])
+phi_names = colnames(pars$Z[[1]])
+fnames = c('Fish 1', 'Fish 2')
+
+b_names = b_names %>% 
+  str_replace_all("_", " ") %>% 
+  str_to_title() %>% 
+  str_replace_all('Dd5', 'DD5') %>% 
+  str_replace_all('Gis', 'GIS')
+
+phi_names = phi_names %>% 
+  str_replace_all("_", " ") %>% 
+  str_to_title() %>% 
+  str_replace_all('Gn', 'GN')
+
+colnames(b_true) = b_names
+rownames(b_true) = fnames
+
+colnames(phi_true) = phi_names
+rownames(phi_true) = fnames
+
+b_true = as_tibble(t(b_true), rownames = NA) %>% 
+  rownames_to_column(var = 'Beta')
+
+phi_true = as_tibble(t(phi_true), rownames = NA) %>% 
+  rownames_to_column(var = 'Alpha')
+
+true_vals = cbind(b_true, phi_true)
+
+print(xtable(true_vals,
+             caption = 'Posterior mean and 95\% credible intervals for the relative abundance, beta, portion of the model under the constant catchability simulation scheme.'),
+      include.rownames=FALSE)
+
+
+# relative abundance
+
+b_mean = apply(run$beta[,,-burnin], c(1,2), mean)
+b_lower = apply(run$beta[,,-burnin], c(1,2), quantile, probs = 0.025)
+b_upper = apply(run$beta[,,-burnin], c(1,2), quantile, probs = 0.975)
+
+b_conf = matrix(paste0("(", round(b_lower, 3), ", ", round(b_upper, 3), ")"), nrow = 2)
+
+colnames(b_mean) = b_names
+rownames(b_mean) = fnames
+
+colnames(b_conf) = b_names
+rownames(b_conf) = fnames
+
+f1 = rbind(round(b_mean[1,], 3), b_conf[1,])
+f2 = rbind(round(b_mean[2,], 3), b_conf[2,])
+
+rownames(f1) = rownames(f2) = c('Mean', 'CI')
+
+
+f1 = as_tibble(t(f1), rownames = NA) %>% 
+  rownames_to_column(var = 'Variable')
+
+f2 = as_tibble(t(f2), rownames = NA) %>% 
+  rownames_to_column(var = 'Variable')
+
+fish_tab = f1 %>% rename('Mean Fish 1' = 'Mean',
+                         'CI Fish 1' = 'CI') %>% 
+  left_join(f2 %>% rename('Mean Fish 2' = 'Mean',
+                          'CI Fish 2' = 'CI'))
+
+print(xtable(fish_tab,
+             caption = 'Posterior mean and 95 credible intervals for the relative abundance, beta, portion of the model under the constant catchability simulation scheme.'),
+      include.rownames=FALSE)
+
+
+
+# catchability
+
+
+phi_mean = apply(run$phi[,,-burnin], c(1,2), mean)
+phi_lower = apply(run$phi[,,-burnin], c(1,2), quantile, probs = 0.025)
+phi_upper = apply(run$phi[,,-burnin], c(1,2), quantile, probs = 0.975)
+
+phi_conf = matrix(paste0("(", round(phi_lower, 3), ", ", round(phi_upper, 3), ")"), nrow = 2)
+
+colnames(phi_mean) = phi_names
+rownames(phi_mean) = fnames
+
+colnames(phi_conf) = phi_names
+rownames(phi_conf) = fnames
+
+f1 = rbind(round(phi_mean[1,], 3), phi_conf[1,])
+f2 = rbind(round(phi_mean[2,], 3), phi_conf[2,])
+
+rownames(f1) = rownames(f2) = c('Mean', 'CI')
+
+f1 = as_tibble(t(f1), rownames = NA) %>% 
+  rownames_to_column(var = 'Variable')
+
+f2 = as_tibble(t(f2), rownames = NA) %>% 
+  rownames_to_column(var = 'Variable')
+
+fish_tab = f1 %>% rename('Mean Fish 1' = 'Mean',
+                         'CI Fish 1' = 'CI') %>% 
+  left_join(f2 %>% rename('Mean Fish 2' = 'Mean',
+                          'CI Fish 2' = 'CI'))
+
+print(xtable(fish_tab,
+             caption = 'Posterior mean and 95 credible intervals for the catchability, alpha, portion of the model under the constant catchability simulation scheme.'), 
+      include.rownames=FALSE)
+
+
+
+# species dependence
+
+sig_mean = apply(run$sigma_species[,,-burnin], c(1,2), mean)
+sig_lower = apply(run$sigma_species[,,-burnin], c(1,2), quantile, probs = 0.025)
+sig_upper = apply(run$sigma_species[,,-burnin], c(1,2), quantile, probs = 0.975)
+
+cor_struc = array(NA, dim = dim(run$sigma_species[,,-burnin]))
+strt = length(burnin)
+for(i in 1:(dim(run$sigma_species)[3] - burnin)){
+  cor_struc[,,i] = cov2cor(run$sigma_species[,, strt + i])
+}
+
+sig_mean = apply(cor_struc, c(1,2), mean)
+sig_lower = apply(cor_struc, c(1,2), quantile, probs = 0.025)
+sig_upper = apply(cor_struc, c(1,2), quantile, probs = 0.975)
+
+
+sig_sig = array(0, dim = dim(sig_mean))
+sig_sig = ifelse((sig_upper > 0) & (sig_lower < 0), 1, 0)
+
+sig_mean_sig = round(sig_mean, 3)
+cint = round((sig_upper - sig_lower)/2, 3)
+
+sig_mean_sig = paste0(sig_mean_sig, " (", cint, ")")
+sig_col = ifelse(sig_sig, paste0("\\cellcolor{red}", sig_mean_sig), paste0("\\cellcolor{white}", sig_mean_sig))
+colnames(sig_col) = fnames
+rownames(sig_col) = fnames
+print(xtable(t(sig_col)), sanitize.text.function = identity)
+
+
+apply(run$sigma_species[,,-burnin], c(1,2), mean)
+cmat = cov2cor(apply(run$sigma_species[,,-burnin], c(1,2), mean))
+colnames(cmat) = pars$fish_names
+rownames(cmat) = pars$fish_names
+cmat
 
