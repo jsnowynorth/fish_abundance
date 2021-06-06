@@ -7,7 +7,7 @@
 ##
 ## Objective: Multivariate fish abundance model. Land use covariates, GDD, secchi.
 ##            Separate function for each component.
-## Notes:
+## Notes: 
 ##
 ##----------------------------------------------------
 
