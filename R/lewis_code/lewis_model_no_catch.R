@@ -468,7 +468,7 @@ sampler <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs
   
   
   p_beta = pars$p_beta
-  p_phi = pars$p_phi
+  # p_phi = pars$p_phi
   K = pars$K
   
   keep_samp = nits-burnin
@@ -476,8 +476,8 @@ sampler <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs
   
   beta_post = array(NA, dim = c(K, p_beta, keep_num))
   beta_accept_post = array(NA, dim = c(K, p_beta, nits))
-  phi_post = array(NA, dim = c(K, p_phi, keep_num))
-  phi_accept_post = array(NA, dim = c(K, p_phi, nits))
+  # phi_post = array(NA, dim = c(K, p_phi, keep_num))
+  # phi_accept_post = array(NA, dim = c(K, p_phi, nits))
   omega_post = array(NA, dim = c(length(pars$omega), keep_num))
   sigma_species_post = array(NA, dim = c(dim(pars$Sigma_species), keep_num))
   
@@ -489,16 +489,16 @@ sampler <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs
   for(i in seq(1, (burnin - 1))){
     
     pars <- update_beta(pars)
-    pars <- update_phi(pars)
+    # pars <- update_phi(pars)
     pars <- update_omega(pars)
     pars <- update_sigma_species(pars)
     
     beta_accept_post[,,i] = pars$beta_accept
-    phi_accept_post[,,i] = pars$phi_accept
+    # phi_accept_post[,,i] = pars$phi_accept
     
     if(i %in% seq(0, burnin-1, by = check_num)){
       pars <- update_proposal_var_beta(pars, beta_accept_post, i, check_num)
-      pars <- update_proposal_var_phi(pars, phi_accept_post, i, check_num)
+      # pars <- update_proposal_var_phi(pars, phi_accept_post, i, check_num)
     }
     
     pb$tick()
@@ -514,17 +514,17 @@ sampler <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs
   for(i in seq(burnin, nits)){
     
     pars <- update_beta(pars)
-    pars <- update_phi(pars)
+    # pars <- update_phi(pars)
     pars <- update_omega(pars)
     pars <- update_sigma_species(pars)
     
     beta_accept_post[,,i] = pars$beta_accept
-    phi_accept_post[,,i] = pars$phi_accept
+    # phi_accept_post[,,i] = pars$phi_accept
     
     if(i %in% seq(burnin, nits, by = thin)){
       
       beta_post[,,j] = pars$beta
-      phi_post[,,j] = pars$phi
+      # phi_post[,,j] = pars$phi
       omega_post[,j] = pars$omega
       sigma_species_post[,,j] = pars$Sigma_species
       
@@ -534,7 +534,7 @@ sampler <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs
     
     if(i %in% seq(burnin, nits, by = check_num)){
       pars <- update_proposal_var_beta(pars, beta_accept_post, i, check_num)
-      pars <- update_proposal_var_phi(pars, phi_accept_post, i, check_num)
+      # pars <- update_proposal_var_phi(pars, phi_accept_post, i, check_num)
     }
     
     
@@ -544,10 +544,10 @@ sampler <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs
   
   return(list(beta = beta_post,
               beta_accept = beta_accept_post,
-              phi = phi_post,
-              phi_accept = phi_accept_post,
+              # phi = phi_post,
+              # phi_accept = phi_accept_post,
               sig_prop_beta = pars$sig_prop_beta,
-              sig_prop_phi = pars$sig_prop_phi,
+              # sig_prop_phi = pars$sig_prop_phi,
               omega = omega_post,
               sig_prop_omega = pars$sig_prop_omega,
               sigma_species = sigma_species_post,
