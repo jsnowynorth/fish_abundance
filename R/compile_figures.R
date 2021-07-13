@@ -176,7 +176,7 @@ fish_dat = fish_dat %>%
 # model -------------------------------------------------------------------
 
 source('R/lewis_code/lewis_model.R')
-source('R/lewis_code/lewis_model_no_spatial.R')
+# source('R/lewis_code/lewis_model_no_spatial.R')
 
 # spatial covs
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:15,17, 25)]
@@ -1054,6 +1054,41 @@ cpue_rel_spat = rel_abun %>%
   select(COMMON_NAME, Abundance, CPUE, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
   pivot_longer(c(Abundance, CPUE), names_to = 'Est', values_to = 'Abun')
 
+# bcc = rel_abun %>% 
+#   filter(CPUE < 80) %>%
+#   mutate(yr = year(SURVEYDATE)) %>% 
+#   group_by(DOW, COMMON_NAME, yr) %>% 
+#   mutate(CPUE = sum(CPUE, na.rm = T)) %>% 
+#   distinct(DOW, .keep_all = T) %>% 
+#   ungroup() %>% 
+#   pivot_longer(c(Abundance, CPUE), names_to = 'Est', values_to = 'Abun') %>% 
+#   filter(Est == 'CPUE') %>% 
+#   filter(COMMON_NAME == 'black crappie') %>% 
+#   select(DOW:SURVEYDATE, LAKE_CENTER_UTM_EASTING:year, LAKE_CENTER_LAT_DD5:Abun) %>% 
+#   rename("CPUE" = 'Abun') %>% 
+#   select(-Est)
+# 
+# bca = rel_abun %>% 
+#   filter(CPUE < 80) %>%
+#   mutate(yr = year(SURVEYDATE)) %>% 
+#   group_by(DOW, COMMON_NAME, yr) %>% 
+#   mutate(CPUE = sum(CPUE, na.rm = T)) %>% 
+#   distinct(DOW, .keep_all = T) %>% 
+#   ungroup() %>% 
+#   pivot_longer(c(Abundance, CPUE), names_to = 'Est', values_to = 'Abun') %>% 
+#   filter(Est == 'Abundance') %>% 
+#   filter(COMMON_NAME == 'black crappie') %>% 
+#   select(DOW:SURVEYDATE, LAKE_CENTER_UTM_EASTING:year, LAKE_CENTER_LAT_DD5:Abun) %>% 
+#   select(-Est)
+# 
+# bc = bcc %>% 
+#   left_join(bca)
+# 
+# bc %>% 
+#   filter(CPUE == 0)
+
+bc_no_cpue = bc %>%
+  filter(CPUE == 0)
 
 create_spatial_abun <- function(fish, abun, title, save_fig = FALSE){
   
@@ -1083,6 +1118,9 @@ create_spatial_abun <- function(fish, abun, title, save_fig = FALSE){
   }
   
 }
+
+create_spatial_abun('black crappie', 'CPUE', 'Black Crappie - CPUE', save_fig = F)
+create_spatial_abun('black crappie', 'Abundance', 'Black Crappie - Abundance', save_fig = F)
 
 create_spatial_abun('black crappie', 'CPUE', 'Black Crappie - CPUE', save_fig = T)
 create_spatial_abun('black crappie', 'Abundance', 'Black Crappie - Abundance', save_fig = T)
