@@ -45,6 +45,10 @@ fish_dat = fish_dat %>%
          COMMON_NAME = as.factor(COMMON_NAME)) %>% 
   arrange(DOW, year, COMMON_NAME)
 
+fish_dat = fish_dat %>%
+  filter(year >= 2000) %>% 
+  mutate(DOW = droplevels(DOW))
+
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:15,17, 25)]
 temporal_covs = colnames(fish_dat)[c(23, 25)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]

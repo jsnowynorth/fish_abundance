@@ -22,49 +22,19 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
   # only fixed covs
   P = fish_dat %>% 
     distinct(DOW, .keep_all = T) %>%
-    select(all_of(mean_covs)) %>% 
-    select(-all_of(temporal_covs)) %>% 
+    select(all_of(mean_covs), DOW) %>% 
+    select(-all_of(temporal_covs), DOW) %>% 
+    left_join(fish_dat %>% 
+                select(DOW, all_of(temporal_covs)) %>% 
+                group_by(DOW) %>% 
+                summarise_all(mean), by = 'DOW') %>% 
+    select(-DOW) %>% 
     mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
     mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
     mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
     as.matrix()
   
-  # with time and fixed covs
-  # P = fish_dat %>% 
-  #   filter(COMMON_NAME == levs[1]) %>%
-  #   select(all_of(mean_covs)) %>% 
-  #   mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-  #   mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-  #   mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-  #   mutate(Int = 1) %>% 
-  #   as.matrix()
   
-  # X_dist = fish_dat %>% 
-  #   distinct(DOW, .keep_all = T)
-  
-  # count_calc = fish_dat %>% 
-  #   anti_join(X_dist) %>% 
-  #   select(DOW) %>% 
-  #   mutate(Ind = 1) %>% 
-  #   pivot_wider(names_from = DOW, values_from = Ind, values_fn = sum) %>% 
-  #   pivot_longer(cols = everything(), names_to = "DOW", values_to = "Count")
-  
-  # count_calc = fish_dat %>% 
-  #   select(DOW) %>% 
-  #   mutate(Ind = 1) %>% 
-  #   pivot_wider(names_from = DOW, values_from = Ind, values_fn = sum) %>% 
-  #   pivot_longer(cols = everything(), names_to = "DOW", values_to = "Count")
-  # 
-  # weight_vec = 1/(count_calc$Count/6)
-  
-  # P = fish_dat %>% 
-  #   distinct(DOW, .keep_all = T) %>%
-  #   select(all_of(mean_covs)) %>% 
-  #   mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-  #   mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-  #   mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-  #   mutate(Int = 1) %>% 
-  #   as.matrix()
   
   pars$P = diag(nrow(P)) - P %*% solve(t(P) %*% P) %*% t(P)
   

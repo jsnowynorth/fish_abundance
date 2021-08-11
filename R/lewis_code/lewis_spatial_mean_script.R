@@ -33,8 +33,8 @@ library(spam)
 
 
 # source functions --------------------------------------------------------
-source('/home/jntmf/data/fish/code/lewis_model.R')
-# source('R/lewis_code/lewis_model.R')
+source('/home/jntmf/data/fish/code/lewis_model_mean.R')
+# source('R/lewis_code/lewis_model_mean.R')
 
 # load data ---------------------------------------------------------------
 fish_dat = read_csv('/home/jntmf/data/fish/data/fish_dat.csv')
@@ -58,13 +58,13 @@ gear_types = colnames(fish_dat)[c(21, 22)]
 
 # run model ---------------------------------------------------------------
 
-save_pars_spatial = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs)
-# save_pars_spatial = read_rds('/home/jntmf/data/fish/results/spatial/curr_pars_spatial.rds')
+save_pars_spatial_mean = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs)
+# save_pars_spatial_mean = read_rds('/home/jntmf/data/fish/results/spatial/curr_pars_spatial_mean.rds')
 run = sampler(nits = 50000, burnin = 100, thin = 10, check_num = 10, pars = save_pars_spatial)
 
-saveRDS(run$pars, file = '/home/jntmf/data/fish/results/spatial/curr_pars_spatial.rds')
-saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_1.rds')
-# saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_2.rds')
-# saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_3.rds')
-# saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_4.rds')
-# saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_5.rds')
+saveRDS(run$pars, file = '/home/jntmf/data/fish/results/spatial/curr_pars_spatial_mean.rds')
+saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_mean_1.rds')
+# saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_mean_2.rds')
+# saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_mean_3.rds')
+# saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_mean_4.rds')
+# saveRDS(run, file = '/home/jntmf/data/fish/results/spatial/full_model_spatial_mean_5.rds')

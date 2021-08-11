@@ -127,18 +127,27 @@ for(i in 1:n_post_samps){
   
 }
 
-plot(D_post, type = 'l')
+# plot(D_post[-c(1:10000)], type = 'l')
+# 
+# pD = 0.5 * var(D_post[-c(1:10000)])
+# 
+# DIC_spatial = D + 2*pD # 7712249
 
-pD = 0.5 * var(D_post[-c(1:10000)])
+DIC_spatial = 2*mean(-2*D_post) - (-2*D) # 2096379
 
-DIC_spatial = D + 2*pD
+
+# bayesian information criterion
+k = sum(length(b_hat), length(phi_hat), length(omega_hat))
+n = sum(unlist(lapply(pars$Y, length)))
+
+BIC_spatial = k*log(n) - 2*D # 2146076
 
 # calculate DIC no catch  ------------------------------------------------------
 
 
 run_1 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial_no_catch/full_model_spatial_no_catch_1.rds')
-run_2 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial/full_model_spatial_3.rds')
-run_3 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial/full_model_spatial_4.rds')
+run_2 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial_no_catch/full_model_spatial_no_catch_2.rds')
+run_3 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial_no_catch/full_model_spatial_no_catch_3.rds')
 
 # beta_no = run_1$beta
 # omega_no = run_1$omega
@@ -195,9 +204,24 @@ for(i in 1:n_post_samps_no){
 
 plot(D_post_no, type = 'l')
 
-pD_no = 0.5 * var(D_post_no[-c(1:4000)])
+pD_no = 0.5 * var(D_post_no[-c(1:10000)])
 
-DIC_no_spatial = D_no + 2*pD_no
+DIC_no_spatial = D_no + 2*pD_no # 27058552
+
+
+DIC_no_spatial = 2*mean(-2*D_post_no) - (-2*D_no) # 2096379
+
+
 
 # find spatial is smaller than no spatial by a lot
-DIC_no_spatial > DIC_spatial
+DIC_no_spatial > DIC_spatial # TRUE
+DIC_no_spatial - DIC_spatial # 19346303
+
+# bayesian information criterion
+k = sum(length(b_hat), length(omega_hat))
+n = sum(unlist(lapply(pars$Y, length)))
+
+BIC_no_spatial = k*log(n) - 2*D_no # 3779665
+
+BIC_no_spatial > BIC_spatial # TRUE
+BIC_no_spatial - BIC_spatial # 1633589

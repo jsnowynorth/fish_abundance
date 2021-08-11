@@ -38,9 +38,14 @@ source('/home/jntmf/data/fish/code/lewis_model_no_spatial.R')
 # load data ---------------------------------------------------------------
 fish_dat = read_csv('/home/jntmf/data/fish/data/fish_dat.csv')
 
+
 fish_dat = fish_dat %>% 
   mutate(DOW = as.factor(DOW),
          COMMON_NAME = as.factor(COMMON_NAME))
+
+fish_dat = fish_dat %>%
+  filter(year >= 2000) %>% 
+  mutate(DOW = droplevels(DOW))
 
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:15,17, 25)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]

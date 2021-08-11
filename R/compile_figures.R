@@ -175,6 +175,17 @@ fish_dat = fish_dat %>%
 
 # model -------------------------------------------------------------------
 
+fish_dat = read_csv('data/fish_dat.csv')
+
+fish_dat = fish_dat %>% 
+  mutate(DOW = as.factor(DOW),
+         COMMON_NAME = as.factor(COMMON_NAME)) %>% 
+  arrange(DOW, year, COMMON_NAME)
+
+fish_dat = fish_dat %>%
+  filter(year >= 2000) %>% 
+  mutate(DOW = droplevels(DOW))
+
 source('R/lewis_code/lewis_model.R')
 # source('R/lewis_code/lewis_model_no_spatial.R')
 
@@ -187,33 +198,41 @@ catch_covs = colnames(fish_dat)[c(24, 27:30)] # temp doy interaction
 gear_types = colnames(fish_dat)[c(21, 22)]
 
 
-# no land covs
-mean_covs = colnames(fish_dat)[c(7, 9, 23, 25)]
-temporal_covs = colnames(fish_dat)[c(23, 25)]
-mean_covs_log = colnames(fish_dat)[c(7, 9)]
-mean_covs_logit = NULL
-catch_covs = colnames(fish_dat)[c(24, 27:30)] # temp doy interaction
-gear_types = colnames(fish_dat)[c(21, 22)]
-
 # load in sampler data ----------------------------------------------------
 
-run_1 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/no_land/full_model_no_land_1.rds')
-run_2 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/no_land/full_model_no_land_2.rds')
-run_3 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/no_land/full_model_no_land_3.rds')
+# par(mfrow = c(3,3))
+# for(i in 1:9){
+#   plot(beta[1,i,], type = 'l')
+#   abline(h = 0)
+# }
+# 
+# par(mfrow = c(3,4))
+# for(i in 1:11){
+#   plot(phi[6,i,], type = 'l')
+# }
 
-run_1 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/Original/non_spatial/full_model_non_spatial_1.rds')
-run_2 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/Original//non_spatial/full_model_non_spatial_2.rds')
-run_3 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/Original//non_spatial/full_model_non_spatial_3.rds')
-
-run_1 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial/full_model_spatial_1.rds')
-run_2 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial/full_model_spatial_2.rds')
-run_3 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial/full_model_spatial_3.rds')
-
-run_1 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial/full_model_spatial_2.rds')
-run_2 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial/full_model_spatial_3.rds')
-run_3 = read_rds(file = '/Users/joshuanorth/Desktop/lewis_results/RSR/spatial/full_model_spatial_4.rds')
+run = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_5_tmp.rds')
+# run = read_rds(file = '/Users/joshuanorth/Desktop/full_model_non_spatial_3.rds')
+beta = run$beta
+phi = run$phi
+omega = run$omega
+sigma_species = run$sigma_species
 
 
+# run_1 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_1_tmp.rds')
+# run_2 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_2_tmp.rds')
+# run_3 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_3_tmp.rds')
+# run_4 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_4_tmp.rds')
+# run_5 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_5_tmp.rds')
+
+
+run_1 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_3_tmp.rds')
+run_2 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_4_tmp.rds')
+run_3 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_5_tmp.rds')
+
+# run_1 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_1_tmp.rds')
+# run_2 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_2_tmp.rds')
+# run_3 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_3_tmp.rds')
 beta = abind(run_1$beta, 
              run_2$beta,
              run_3$beta, along = 3)
@@ -223,14 +242,42 @@ phi = abind(run_1$phi,
             run_3$phi, along = 3)
 
 omega = abind(run_1$omega, 
-              run_2$omega, 
-              run_3$omega, along = 2)
+              run_2$omega,
+              run_3$omega, along = 3)
 
 sigma_species = abind(run_1$sigma_species, 
                       run_2$sigma_species,
-                      run_3$sigma_species, along = 3)
+                      run_3$sigma_species,along = 3)
 
 rm(run_1, run_2, run_3)
+
+
+
+beta = abind(run_1$beta, 
+             run_2$beta,
+             run_3$beta,
+             run_4$beta,
+             run_5$beta, along = 3)
+
+phi = abind(run_1$phi, 
+            run_2$phi,
+            run_3$phi,
+            run_4$phi,
+            run_5$phi, along = 3)
+
+omega = abind(run_1$omega, 
+              run_2$omega, 
+              run_3$omega,
+              run_4$omega,
+              run_5$omega, along = 2)
+
+sigma_species = abind(run_1$sigma_species, 
+                      run_2$sigma_species,
+                      run_3$sigma_species,
+                      run_4$sigma_species,
+                      run_5$sigma_species, along = 3)
+
+rm(run_1, run_2, run_3, run_4, run_5)
 
 # pars <- create_pars(fish_dat, mean_covs, mean_covs_log, mean_covs_logit, catch_covs) # non-spatial
 pars <- create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs) # spatial
@@ -263,9 +310,18 @@ round(b_hat, 3) %>%
 #   relocate(Species) %>% 
 #   write_csv("/Users/joshuanorth/Desktop/b_hat_no_land.csv")
 
+fnames = pars$fish_names %>% str_replace(., ' ', '_')
 
-
-
+for(j in 1:6){
+  png(paste0('/Users/joshuanorth/Desktop/mean_chains/', fnames[j], '.png'), width = 800, height = 600)
+  # png(paste0('/Users/joshuanorth/Desktop/full_chains/', fnames[j], '.png'), width = 800, height = 600)
+  par(mfrow = c(3,3))
+  for(i in 1:9){
+    plot(beta[j,i,], type = 'l', main = b_names[i])
+    abline(h = 0)
+  }
+  dev.off()
+}
 
 
 par(mfrow = c(3,3))
@@ -277,7 +333,7 @@ for(i in 1:9){
 
 par(mfrow = c(3,4))
 for(i in 1:11){
-  plot(phi[5,i,], type = 'l', main = phi_names[i])
+  plot(phi[6,i,], type = 'l', main = phi_names[i])
 }
 
 
@@ -288,9 +344,20 @@ for(i in 1001:1018){
   plot(omega[i,], type = 'l', main = pars$fish_names[j])
 }
 
+par(mfrow = c(3,6))
+for(i in 101:103){
+  plot(omega[i,1,], type = 'l', main = pars$fish_names[1])
+  plot(omega[i,2,], type = 'l', main = pars$fish_names[2])
+  plot(omega[i,3,], type = 'l', main = pars$fish_names[3])
+  plot(omega[i,4,], type = 'l', main = pars$fish_names[4])
+  plot(omega[i,5,], type = 'l', main = pars$fish_names[5])
+  plot(omega[i,6,], type = 'l', main = pars$fish_names[6])
+}
+
+
 par(mfrow = c(2,3))
 for(i in 1:6){
-  plot(sigma_species[6,i,], type = 'l', main = pars$fish_names[i])
+  plot(sigma_species[5,i,], type = 'l', main = pars$fish_names[i])
 }
 
 
@@ -413,17 +480,150 @@ ggplot(data = mean_complete) +
 # ggsave('results/spatial_results/species_dependenc.png', width = 10, height = 10)
 
 
+# sample date spatial plot ---------------------------------------------------
+
+sdate = fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  mutate(day=yday(SURVEYDATE)) %>% 
+  ungroup() %>% 
+  group_by(DOW) %>% 
+  summarize(min = min(day), max = max(day), mean = mean(day), median = median(day), sd = sd(day)) %>% 
+  mutate(sd = ifelse(is.na(sd), 0, sd))
+
+sdate = fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  mutate(day=yday(SURVEYDATE)) %>% 
+  ungroup() %>% 
+  group_by(DOW) %>% 
+  summarize(min = min(SURVEYDATE), max = max(SURVEYDATE), mean = mean(SURVEYDATE), median = median(SURVEYDATE), sd = sd(day)) %>% 
+  mutate(sd = ifelse(is.na(sd), 0, sd))
+
+sdate_pat = sdate %>% 
+  left_join(effort %>% 
+              left_join(static, by = 'DOW') %>% 
+              select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+              mutate(DOW = factor(DOW)) %>% 
+              distinct(DOW, .keep_all = T), by = 'DOW')
+
+lats = range(sdate_pat$LAKE_CENTER_LAT_DD5, na.rm = T)
+lons = range(sdate_pat$LAKE_CENTER_LONG_DD5, na.rm = T)
+
+usa = st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
+
+
+
+as.Date(quantile(unclass(sdate_pat$median), seq(0.05, 0.95, 0.1)), origin = "1970-01-01")
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = sdate_pat, 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = median), size = 3) +
+  scale_color_fermenter(breaks = round(unname(quantile((sdate_pat)$median, probs = seq(0.05, 0.95, 0.15))),2), 
+                        palette = 'YlOrRd', direction = 1, name = 'Day of Year') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  ggtitle("Median Sample Date") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+# ggsave('results/spatial_results/median_sample_date_spat.png', width = 12, height = 8)
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = sdate_pat, 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = sd), size = 3) +
+  scale_color_fermenter(breaks = round(unname(quantile((sdate_pat)$sd, probs = seq(0.05, 0.95, 0.15))),2), palette = 'YlOrRd', direction = 1) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  ggtitle("Standard Deviation in Sample Date") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+# ggsave('results/spatial_results/sd_sample_date_spat.png', width = 12, height = 8)
+
+
+fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  mutate(day=yday(SURVEYDATE),
+         SURVEYDATE=ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
+  ungroup() %>% 
+  group_by(DOW) %>% 
+  summarize(min = min(SURVEYDATE), max = max(SURVEYDATE), mean = mean(SURVEYDATE), median = median(SURVEYDATE), sd = sd(day)) %>% 
+  mutate(sd = ifelse(is.na(sd), 0, sd)) %>% 
+  ggplot(., aes(x = median)) +
+  geom_histogram(bins = 50, color = 'black') +
+  scale_x_date(date_breaks = 'week', date_labels = "%b %d", limits = c(ymd('2016-05-30'), ymd('2016-09-12'))) +
+  ylab('Count') +
+  xlab('') +
+  ggtitle('Median Sample Date by Lake') +
+  theme(legend.title=element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+
+fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  mutate(day=yday(SURVEYDATE),
+         SURVEYDATE=ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
+  ungroup() %>% 
+  ggplot(., aes(x = SURVEYDATE)) +
+  geom_histogram(bins = 50, color = 'black') +
+  scale_x_date(date_breaks = 'week', date_labels = "%b %d", limits = c(ymd('2016-05-30'), ymd('2016-09-12'))) +
+  ylab('Count') +
+  xlab('') +
+  ggtitle('Sample Date by Lake') +
+  theme(legend.title=element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+# ggsave('results/spatial_results/sample_date_hist.png', width = 12, height = 8)
+
+
 # relative abundance ------------------------------------------------------
 
-b_hat = apply(beta[,,-c(1:2000)], c(1,2), mean)
+b_hat = apply(beta, c(1,2), mean)
 colnames(b_hat) = b_names
 
-phi_hat = apply(phi[,,-c(1:2000)], c(1,2), mean)
+phi_hat = apply(phi, c(1,2), mean)
 colnames(phi_hat) = phi_names
 
 # construct omega
 K = length(pars$fish_names)
-omega_hat = pars$P %*% matrix(apply(omega, 1, mean), ncol = K, byrow = F)
+# omega_hat = pars$P %*% matrix(apply(omega, 1, mean), ncol = K, byrow = F)
+omega_hat = pars$P %*% apply(omega, c(1,2), mean)
 ind_array = tibble(id = pars$lake_id, as_tibble(omega_hat, .name_repair = ~LETTERS[1:K]))
 lake_array = tibble(id = pars$lake_index)
 omega_hat = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
@@ -431,7 +631,7 @@ omega_hat = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select
 
 lam_hat = list()
 for(k in 1:pars$K){
-  lam_hat[[k]] = exp(pars$X[[k]] %*% b_hat[k,] + omega_hat[k] + pars$Z[[k]] %*% phi_hat[k,])
+  lam_hat[[k]] = exp(pars$X[[k]] %*% b_hat[k,] + omega_hat[,k] + pars$Z[[k]] %*% phi_hat[k,])
 }
 
 
@@ -677,10 +877,11 @@ ggplot(cpue_rel_TN, aes(x = CPUE, y = Abundance)) +
 
 # spatial residual plot ---------------------------------------------------
 
+
 # construct omega
 K = length(pars$fish_names)
-omega_hat = pars$P %*% matrix(apply(omega, 1, mean), ncol = K, byrow = F)
-# omega_hat = matrix(apply(omega, 1, mean), ncol = K, byrow = F)
+# omega_hat = pars$P %*% matrix(apply(omega, 1, mean), ncol = K, byrow = F)
+omega_hat = pars$P %*% apply(omega, c(1,2), mean)
 ind_array = tibble(id = pars$lake_id, as_tibble(omega_hat, .name_repair = ~LETTERS[1:K]))
 lake_array = tibble(id = pars$lake_index)
 omega_hat = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
@@ -1054,39 +1255,6 @@ cpue_rel_spat = rel_abun %>%
   select(COMMON_NAME, Abundance, CPUE, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
   pivot_longer(c(Abundance, CPUE), names_to = 'Est', values_to = 'Abun')
 
-# bcc = rel_abun %>% 
-#   filter(CPUE < 80) %>%
-#   mutate(yr = year(SURVEYDATE)) %>% 
-#   group_by(DOW, COMMON_NAME, yr) %>% 
-#   mutate(CPUE = sum(CPUE, na.rm = T)) %>% 
-#   distinct(DOW, .keep_all = T) %>% 
-#   ungroup() %>% 
-#   pivot_longer(c(Abundance, CPUE), names_to = 'Est', values_to = 'Abun') %>% 
-#   filter(Est == 'CPUE') %>% 
-#   filter(COMMON_NAME == 'black crappie') %>% 
-#   select(DOW:SURVEYDATE, LAKE_CENTER_UTM_EASTING:year, LAKE_CENTER_LAT_DD5:Abun) %>% 
-#   rename("CPUE" = 'Abun') %>% 
-#   select(-Est)
-# 
-# bca = rel_abun %>% 
-#   filter(CPUE < 80) %>%
-#   mutate(yr = year(SURVEYDATE)) %>% 
-#   group_by(DOW, COMMON_NAME, yr) %>% 
-#   mutate(CPUE = sum(CPUE, na.rm = T)) %>% 
-#   distinct(DOW, .keep_all = T) %>% 
-#   ungroup() %>% 
-#   pivot_longer(c(Abundance, CPUE), names_to = 'Est', values_to = 'Abun') %>% 
-#   filter(Est == 'Abundance') %>% 
-#   filter(COMMON_NAME == 'black crappie') %>% 
-#   select(DOW:SURVEYDATE, LAKE_CENTER_UTM_EASTING:year, LAKE_CENTER_LAT_DD5:Abun) %>% 
-#   select(-Est)
-# 
-# bc = bcc %>% 
-#   left_join(bca)
-# 
-# bc %>% 
-#   filter(CPUE == 0)
-
 bc_no_cpue = bc %>%
   filter(CPUE == 0)
 
@@ -1135,25 +1303,25 @@ create_spatial_abun('walleye', 'Abundance', 'Walleye - Abundance', save_fig = T)
 create_spatial_abun('yellow perch', 'CPUE', 'Yellow Perch - CPUE', save_fig = T)
 create_spatial_abun('yellow perch', 'Abundance', 'Yellow Perch - Abundance', save_fig = T)
 
-# p1 <- create_spatial_abun('black crappie', 'CPUE', 'Black Crappie - CPUE')
-# p2 <- create_spatial_abun('black crappie', 'Abundance', 'Black Crappie - Abundance')
-# p3 <- create_spatial_abun('bluegill', 'CPUE', 'Bluegill - CPUE')
-# p4 <- create_spatial_abun('bluegill', 'Abundance', 'Bluegill - Abundance')
-# p5 <- create_spatial_abun('largemouth bass', 'CPUE', 'Largemouth Bass - CPUE')
-# p6 <- create_spatial_abun('largemouth bass', 'Abundance', 'Largemouth Bass - Abundance')
-# p7 <- create_spatial_abun('northern pike', 'CPUE', 'Northern Pike - CPUE')
-# p8 <- create_spatial_abun('northern pike', 'Abundance', 'Northern Pike - Abundance')
-# p9 <- create_spatial_abun('walleye', 'CPUE', 'Walleye - CPUE')
-# p10 <- create_spatial_abun('walleye', 'Abundance', 'Walleye - Abundance')
-# p11 <- create_spatial_abun('yellow perch', 'CPUE', 'Yellow Perch - CPUE')
-# p12 <- create_spatial_abun('yellow perch', 'Abundance', 'Yellow Perch - Abundance')
-# 
-# 
-# p1_grid = cowplot::plot_grid(p1, p2, p3, p4, p5, p6, nrow = 2, byrow = F)
-# p2_grid = cowplot::plot_grid(p7, p8, p9, p10, p11, p12, nrow = 2, byrow = F)
-# ggsave('results/spatial_results/cpue_rel_spat1.png',p1_grid, width = 15, height = 10)
-# ggsave('results/spatial_results/cpue_rel_spat2.png',p2_grid, width = 15, height = 10)
 
+p1 = create_spatial_abun('black crappie', 'CPUE', 'Black Crappie - CPUE', save_fig = F)
+p2 = create_spatial_abun('black crappie', 'Abundance', 'Black Crappie - Abundance', save_fig = F)
+p3 = create_spatial_abun('bluegill', 'CPUE', 'Bluegill - CPUE', save_fig = F)
+p4 = create_spatial_abun('bluegill', 'Abundance', 'Bluegill - Abundance', save_fig = F)
+p5 = create_spatial_abun('largemouth bass', 'CPUE', 'Largemouth Bass - CPUE', save_fig = F)
+p6 = create_spatial_abun('largemouth bass', 'Abundance', 'Largemouth Bass - Abundance', save_fig = F)
+p7 = create_spatial_abun('northern pike', 'CPUE', 'Northern Pike - CPUE', save_fig = F)
+p8 = create_spatial_abun('northern pike', 'Abundance', 'Northern Pike - Abundance', save_fig = F)
+p9 = create_spatial_abun('walleye', 'CPUE', 'Walleye - CPUE', save_fig = F)
+p10 = create_spatial_abun('walleye', 'Abundance', 'Walleye - Abundance', save_fig = F)
+p11 = create_spatial_abun('yellow perch', 'CPUE', 'Yellow Perch - CPUE', save_fig = F)
+p12 = create_spatial_abun('yellow perch', 'Abundance', 'Yellow Perch - Abundance', save_fig = F)
+
+rel_spat_1 = cowplot::plot_grid(p1, p2, p3, p4, p5, p6, nrow = 2, align = 'hv', byrow = F)
+rel_spat_2 = cowplot::plot_grid(p7, p8, p9, p10, p11, p12, nrow = 2, align = 'hv', byrow = F)
+
+# ggsave('results/spatial_results/cpue_rel_spat1.png', rel_spat_1, width = 15, height = 8)
+# ggsave('results/spatial_results/cpue_rel_spat2.png', rel_spat_2, width = 15, height = 8)
 
 
 # catchability - temperature ----------------------------------------
@@ -1560,8 +1728,8 @@ d_plot_lake = function(phis, fish_names, yr, fish_dat, lake_dow){
               upper = upper))
 }
 
-yr_1 = 1993
-yr_2 = 2016
+yr_1 = 2000
+yr_2 = 2019
 fnames = c('crappie', 'bluegill', 'bass', 'pike', 'walleye', 'perch')
 lake_dow_south = 53002800 # south
 lake_dow_north = 16001900 # north
@@ -1608,9 +1776,12 @@ hot = plt_dat_south_hot$mean %>%
 
 cold = cold %>% 
   mutate(SURVEYDATE=ymd(format(SURVEYDATE, paste0(yr_2, "-%m-%d"))),
-         Date=ymd(format(Date, paste0(yr_2, "-%m-%d"))))
+         Date=ymd(format(Date, paste0(yr_2, "-%m-%d")))) %>% 
+  filter(complete.cases(SURVEYDATE))
 
 
+
+#################3
 ch_plot = cold %>% 
   rbind(hot) %>% 
   mutate(Year = factor(Year)) %>% 
@@ -1618,7 +1789,7 @@ ch_plot = cold %>%
   geom_line(aes(linetype = Lake), size = 0.9) +
   facet_wrap(~ Fish + Gear) +
   geom_rug(aes(x = Date), sides="b") +
-  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-04-01')), ymd(paste0(yr_2, '-10-01')))) +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-06-01')), ymd(paste0(yr_2, '-10-01')))) +
   scale_linetype_manual(values=c("solid", 'longdash', "dotted")) +
   ggtitle(paste0('Gear Type Effectiveness by Region')) +
   xlab('') +
@@ -1635,15 +1806,14 @@ ch_plot = cold %>%
 
 
 cold %>% 
-  mutate(SURVEYDATE=ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
   rbind(hot) %>% 
   mutate(Year = factor(Year)) %>% 
-  ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Lake, fill = Lake)) +
-  geom_line(aes(linetype = Year), size = 1) +
-  facet_wrap(~ Gear + Fish) +
+  ggplot(., aes(x = SURVEYDATE, y = exp(Effectiveness), color = Year, fill = Year)) +
+  geom_line(aes(linetype = Lake), size = 0.9) +
+  facet_wrap(~ Fish + Gear) +
   geom_rug(aes(x = Date), sides="b") +
-  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-04-01')), ymd(paste0(yr_2, '-10-01')))) +
-  scale_linetype_manual(values = c("solid", "dotted")) +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-06-01')), ymd(paste0(yr_2, '-10-01')))) +
+  scale_linetype_manual(values=c("solid", 'longdash', "dotted")) +
   ggtitle(paste0('Gear Type Effectiveness by Region')) +
   xlab('') +
   ylab('Relative Effectiveness') +
@@ -1653,63 +1823,52 @@ cold %>%
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
         title = element_text(size = 16, face = 'bold')) +
-  ylim(c(-25, 25))
+  ylim(c(0, 180000))
 
-cold %>% 
-  mutate(SURVEYDATE=ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
+tmp_dat = cold %>% 
   rbind(hot) %>% 
-  mutate(Year = factor(Year)) %>% 
-  filter(Lake == 'Center') %>% 
-  ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Fish, fill = Fish)) +
-  geom_line(aes(linetype = Year), size = 1.3) +
-  facet_wrap(~ Gear) +
-  geom_rug(aes(x = Date), sides="b") +
-  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-04-01')), ymd(paste0(yr_2, '-10-01')))) +
-  scale_linetype_manual(values = c("solid", "dotted")) +
-  ggtitle(paste0('Gear Type Effectiveness by Region')) +
-  xlab('') +
-  ylab('Relative Effectiveness') +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12),
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size = 16, face = 'bold'),
-        title = element_text(size = 16, face = 'bold')) +
-  ylim(c(-25, 25))
+  mutate(Eff = exp(Effectiveness))
 
 
-pars$fish_names
-
-cold %>% 
-  mutate(SURVEYDATE=ymd(format(SURVEYDATE, "2016-%m-%d")),
-         Date=ymd(format(Date, "2016-%m-%d"))) %>% 
+catch_df = cold %>% 
+  mutate(SURVEYDATE=ymd(format(SURVEYDATE, "2019-%m-%d")),
+         Date=ymd(format(Date, "2019-%m-%d"))) %>% 
   rbind(hot) %>% 
   mutate(Year = factor(Year),
-         Lake = factor(Lake, levels = c('North', 'Center', 'South'))) %>%
-  filter(Fish == 'bass') %>% 
-  ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Lake)) +
-  geom_line(aes(linetype = Year), size = 1.3) +
-  facet_wrap(~ Gear, ncol = 2) +
-  geom_rug(aes(x = Date), sides="b") +
-  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-04-01')), ymd(paste0(yr_2, '-10-01')))) +
-  scale_linetype_manual(values = c("solid", "dashed")) +
-  scale_color_manual(values = c('blue', 'red', 'black')) +
-  ggtitle(paste0('Gear Type Effectiveness by Region')) +
-  xlab('') +
-  ylab('Relative Effectiveness') +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
-        legend.title = element_text(size = 16),
-        legend.text = element_text(size = 16),
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size = 16, face = 'bold'),
-        title = element_text(size = 16, face = 'bold'),
-        legend.position = "bottom",
-        legend.key.width = unit(1.5, 'cm'),
-        strip.text = element_text(size = 14),
-        legend.spacing = unit(5, 'cm'))
+         Lake = factor(Lake, levels = c('North', 'Center', 'South')))
+f_plots = unique(catch_df$Fish)
+f_plot_title = str_to_title(pars$fish_names)
 
-# ggsave(paste0('results/spatial_results/catchability_lake_comp_bass.png'), width = 18, height = 10)
-
+for(i in seq_along(f_plots)){
+  
+  curr_df = catch_df %>% 
+    filter(Fish == f_plots[i])
+  
+  ggplot(curr_df, aes(x = SURVEYDATE, y = Effectiveness, color = Lake)) +
+    geom_line(aes(linetype = Year), size = 1.3) +
+    facet_wrap(~ Gear, ncol = 2) +
+    geom_rug(aes(x = Date), sides="b") +
+    scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-06-01')), ymd(paste0(yr_2, '-10-01')))) +
+    scale_linetype_manual(values = c("solid", "dashed")) +
+    scale_color_manual(values = c('blue', 'red', 'black')) +
+    ggtitle(paste0('Gear Type Effectiveness by Region - ', f_plot_title[i])) +
+    xlab('') +
+    ylab('Relative Effectiveness') +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          axis.text = element_text(size = 14),
+          axis.title = element_text(size = 16, face = 'bold'),
+          title = element_text(size = 16, face = 'bold'),
+          legend.position = "bottom",
+          legend.key.width = unit(1.5, 'cm'),
+          strip.text = element_text(size = 14),
+          legend.spacing = unit(5, 'cm'))
+  
+  fpath = paste0('results/spatial_results/catchability_lake_comp_', f_plots[i], '.png')
+  ggsave(fpath, width = 14, height = 8)
+  
+}
 
 lake_dow_south = 53002800 # south
 lake_dow_north = 16001900 # north
@@ -1750,8 +1909,6 @@ ggplot(data = lake_loc) +
 
 # summaries ---------------------------------------------------------------
 
-
-
 fish_dat %>% 
   select(ag:grass) %>% 
   pivot_longer(ag:grass, names_to = 'variable', values_to = 'value') %>% 
@@ -1778,3 +1935,625 @@ fish_dat %>%
   geom_histogram() +
   facet_wrap(~variable, scales = 'free_y')
 
+
+# average number of lakes surveyed per year
+fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  summarize(number = n()) %>% 
+  summarize(min = min(number), max = max(number), mean = mean(number), median = median(number), sd = sd(number)) %>% 
+  xtable(caption = 'Number of repeat sampler per lake per year.')
+
+# hist of number of lakes per year
+fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  summarize(number = n()) %>% 
+  arrange(desc(number)) %>% 
+  ggplot(., aes(x = number)) +
+  geom_histogram(bins = 23)
+
+fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  summarize(number = n()) %>% 
+  filter(number == 1)
+
+# average survey date day-month
+fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  mutate(SURVEYDATE=ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
+  ungroup() %>% 
+  summarize(min = min(SURVEYDATE), max = max(SURVEYDATE), mean = mean(SURVEYDATE), median = median(SURVEYDATE), sd = sd(SURVEYDATE)) %>% 
+  mutate_all(~format(., format="%m-%d")) %>% 
+  xtable(caption = 'Summary of sampling calendar day when surveys were conducted.')
+
+# average survey date doth  
+fish_dat %>% 
+  select(DOW, SURVEYDATE) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  unique() %>% 
+  ungroup(SURVEYDATE) %>% 
+  mutate(day=yday(SURVEYDATE)) %>% 
+  ungroup() %>% 
+  summarize(min = min(day), max = max(day), mean = mean(day), median = median(day), sd = sd(day)) %>% 
+  xtable(caption = 'Summary of sampling day of the year when surveys were conducted.')
+
+
+# transformed covariate summary
+fish_dat %>% 
+  select(all_of(mean_covs)) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
+  rename('depth' = 'MAX_DEPTH_FEET',
+         'area' = 'LAKE_AREA_GIS_ACRES') %>% 
+  summarise_all(list(min = ~min(.),
+                     max = ~max(.), 
+                     mean = ~mean(.),
+                     median = ~median(.),
+                     sd = ~sd(.))) %>% 
+  pivot_longer(depth_min:secchi_sd, names_to = c('Variable', 'Summary'), names_sep = '_', values_to = 'Value') %>% 
+  pivot_wider(names_from = 'Summary', values_from = 'Value') %>% 
+  xtable(caption = 'Summary of covariates used. All covariates are transformed as they would appear within the model.')
+
+# raw covariate summary
+fish_dat %>% 
+  select(all_of(mean_covs)) %>% 
+  rename('depth' = 'MAX_DEPTH_FEET',
+         'area' = 'LAKE_AREA_GIS_ACRES') %>% 
+  summarise_all(list(min = ~min(.),
+                     max = ~max(.), 
+                     mean = ~mean(.),
+                     median = ~median(.),
+                     sd = ~sd(.))) %>% 
+  pivot_longer(depth_min:secchi_sd, names_to = c('Variable', 'Summary'), names_sep = '_', values_to = 'Value') %>% 
+  pivot_wider(names_from = 'Summary', values_from = 'Value') %>% 
+  xtable(caption = 'Summary of covariates used. All covariates are on their original, untransformed scales.')
+
+
+
+# fish catch summaries
+fish_dat %>% 
+  select(DOW:CPUE) %>% 
+  rename('fish' = 'COMMON_NAME',
+         'total' = 'TOTAL_CATCH') %>% 
+  rename_all(~str_to_lower(.)) %>% 
+  group_by(fish) %>% 
+  summarise_at(vars(total, cpue), list(min = ~min(.),
+                                       max = ~max(.), 
+                                       mean = ~mean(.),
+                                       median = ~median(.),
+                                       sd = ~sd(.))) %>% 
+  pivot_longer(total_min:cpue_sd, names_to = c('Variable', 'Summary'), names_sep = '_', values_to = 'Value') %>% 
+  pivot_wider(names_from = 'Summary', values_from = 'Value') %>% 
+  xtable(caption = 'Summaries of fish caught by lake for the whole data set, comparing total caught to CPUE.')
+
+
+# fish catch summaries
+fish_dat %>% 
+  select(DOW:CPUE) %>% 
+  rename('fish' = 'COMMON_NAME',
+         'total' = 'TOTAL_CATCH') %>% 
+  rename_all(~str_to_lower(.)) %>% 
+  group_by(fish) %>% 
+  summarise_at(vars(total, cpue), list(min = ~quantile(., probs = 0.01),
+                                       max = ~quantile(., probs = 0.99), 
+                                       mean = ~mean(.),
+                                       median = ~median(.),
+                                       sd = ~sd(.))) %>% 
+  pivot_longer(total_min:cpue_sd, names_to = c('Variable', 'Summary'), names_sep = '_', values_to = 'Value') %>% 
+  pivot_wider(names_from = 'Summary', values_from = 'Value')
+
+
+
+tmp = fish_dat %>% 
+  group_by(COMMON_NAME) %>% 
+  filter(TOTAL_CATCH == max(TOTAL_CATCH))
+
+77018100
+
+tmp2 = fish_dat %>% 
+  filter(DOW == '77018100') %>% 
+  filter(SURVEYDATE == '1996-04-30')
+
+tmp3 = spt_loc %>% 
+  filter(DOW == '77018100')
+
+spt_loc = effort %>% 
+              left_join(static, by = 'DOW') %>% 
+              select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+              mutate(DOW = factor(DOW)) %>% 
+              distinct(DOW, .keep_all = T)
+
+spt_loc %>% 
+  filter(DOW == '77018100')
+
+fish_dat %>% 
+  filter(DOW == '77018100') %>% 
+  filter(COMMON_NAME == 'yellow perch')
+
+
+range(fish_dat$SURVEYDATE)
+
+length(unique(fish_dat$DOW))
+
+
+
+
+
+
+by_fish_vals = fish_dat %>% 
+  select(all_of(mean_covs), COMMON_NAME, TOTAL_CATCH) %>% 
+  rename('depth' = 'MAX_DEPTH_FEET',
+         'area' = 'LAKE_AREA_GIS_ACRES') %>% 
+  filter(TOTAL_CATCH > 0) %>% 
+  select(-TOTAL_CATCH) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise_all(list(min = ~min(.),
+                     max = ~max(.), 
+                     mean = ~mean(.),
+                     median = ~median(.),
+                     sd = ~sd(.))) %>% 
+  pivot_longer(depth_min:secchi_sd, names_to = c('Variable', 'Summary'), names_sep = '_', values_to = 'Value') %>% 
+  pivot_wider(names_from = 'Summary', values_from = 'Value')
+
+by_fish_vals %>% 
+  filter(Variable == 'secchi')
+
+by_fish_vals %>% 
+  filter(Variable == 'DD5')
+
+
+b_hat = apply(beta[,,-c(1:5000)], c(1,2), mean)
+
+round(b_hat, 3) %>%
+  as_tibble(.name_repair = ~b_names) %>%
+  mutate(Species = pars$fish_names) %>%
+  relocate(Species)
+
+
+
+
+# relative abundance vs. cpue unitless ------------------------------------
+
+b_hat = apply(beta, c(1,2), mean)
+colnames(b_hat) = b_names
+
+# construct omega
+K = length(pars$fish_names)
+# omega_hat = pars$P %*% matrix(apply(omega, 1, mean), ncol = K, byrow = F)
+omega_hat = pars$P %*% apply(omega, c(1,2), mean)
+ind_array = tibble(id = pars$lake_id, as_tibble(omega_hat, .name_repair = ~LETTERS[1:K]))
+lake_array = tibble(id = pars$lake_index)
+omega_hat = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
+
+
+lam_hat = list()
+for(k in 1:pars$K){
+  lam_hat[[k]] = exp(pars$X[[k]] %*% b_hat[k,] + omega_hat[,k])
+}
+
+
+rel_abun = rbind(fish_dat %>% filter(COMMON_NAME == 'black crappie') %>% mutate(Abundance = c(lam_hat[[1]])),
+                 fish_dat %>% filter(COMMON_NAME == 'bluegill') %>% mutate(Abundance = c(lam_hat[[2]])),
+                 fish_dat %>% filter(COMMON_NAME == 'largemouth bass') %>% mutate(Abundance = c(lam_hat[[3]])),
+                 fish_dat %>% filter(COMMON_NAME == 'northern pike') %>% mutate(Abundance = c(lam_hat[[4]])),
+                 fish_dat %>% filter(COMMON_NAME == 'walleye') %>% mutate(Abundance = c(lam_hat[[5]])),
+                 fish_dat %>% filter(COMMON_NAME == 'yellow perch') %>% mutate(Abundance = c(lam_hat[[6]])))
+
+rel_abun = rel_abun %>% 
+  select(DOW, COMMON_NAME, CPUE, Abundance) %>% 
+  group_by(DOW, COMMON_NAME) %>% 
+  summarise_at(vars(CPUE, Abundance), median) %>% 
+  ungroup() %>% 
+  mutate(Fish = str_replace_all(COMMON_NAME, " ", "_")) %>% 
+  left_join(effort %>% 
+              left_join(static, by = 'DOW') %>% 
+              select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+              mutate(DOW = factor(DOW)) %>% 
+              distinct(DOW, .keep_all = T), by = 'DOW') %>% 
+  select(DOW, COMMON_NAME, CPUE, Abundance, Fish, LAKE_CENTER_LONG_DD5, LAKE_CENTER_LAT_DD5) %>% group_by(COMMON_NAME) %>% 
+  mutate_at(vars(CPUE, Abundance), ~ (. - mean(.))/sd(.)) %>% 
+  ungroup() %>% 
+  pivot_longer(c(Abundance, CPUE), names_to = 'Est', values_to = 'Abun')
+
+tmp = rel_abun %>% 
+  filter(COMMON_NAME == 'northern pike') %>% 
+  filter(LAKE_CENTER_LONG_DD5 < -95.5 & LAKE_CENTER_LONG_DD5 > -96.5) %>% 
+  filter(LAKE_CENTER_LAT_DD5 < 45 & LAKE_CENTER_LAT_DD5 > 44)
+
+lats = range(rel_abun$LAKE_CENTER_LAT_DD5, na.rm = T)
+lons = range(rel_abun$LAKE_CENTER_LONG_DD5, na.rm = T)
+
+usa = st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
+
+
+create_spatial_abun <- function(fish, abun, title, save_fig = FALSE){
+  
+  p = ggplot() +
+    geom_sf(data = usa) +
+    coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+    geom_point(data = rel_abun %>% 
+                 filter(Est == abun) %>% 
+                 filter(COMMON_NAME == fish), aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abun), size = 1.5) +
+    # scale_color_gradientn(colors = c('red', 'white', 'blue')) +
+    scale_color_fermenter(breaks = c(-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3), palette = 'RdBu', limits = c(-4, 4)) + #
+    xlab("Longitude") +
+    ylab("Latitude") +
+    theme(legend.title=element_blank(),
+          axis.text = element_text(size = 14),
+          axis.title = element_text(size = 16, face = 'bold'),
+          title = element_text(size = 16, face = 'bold')) +
+    ggtitle(title)
+  
+  if(save_fig == TRUE){
+    path = paste0('/Users/joshuanorth/Desktop/erin_talk_plots/', str_replace_all(fish, ' ', '_'), '_', abun, '.png')
+    ggsave(path, p, width = 8, height = 8)
+  }else{
+    return(p)
+  }
+  
+}
+
+create_spatial_abun('black crappie', 'CPUE', 'Black Crappie - CPUE', save_fig = F)
+create_spatial_abun('black crappie', 'Abundance', 'Black Crappie - Abundance', save_fig = F)
+create_spatial_abun('bluegill', 'CPUE', 'Bluegill - CPUE', save_fig = F)
+create_spatial_abun('bluegill', 'Abundance', 'Bluegill - Abundance', save_fig = F)
+create_spatial_abun('largemouth bass', 'CPUE', 'Largemouth Bass - CPUE', save_fig = F)
+create_spatial_abun('largemouth bass', 'Abundance', 'Largemouth Bass - Abundance', save_fig = F)
+create_spatial_abun('northern pike', 'CPUE', 'Northern Pike - CPUE', save_fig = F)
+create_spatial_abun('northern pike', 'Abundance', 'Northern Pike - Abundance', save_fig = F)
+create_spatial_abun('walleye', 'CPUE', 'Walleye - CPUE', save_fig = F)
+create_spatial_abun('walleye', 'Abundance', 'Walleye - Abundance', save_fig = F)
+create_spatial_abun('yellow perch', 'CPUE', 'Yellow Perch - CPUE', save_fig = F)
+create_spatial_abun('yellow perch', 'Abundance', 'Yellow Perch - Abundance', save_fig = F)
+
+create_spatial_abun('black crappie', 'CPUE', 'Black Crappie - CPUE', save_fig = T)
+create_spatial_abun('black crappie', 'Abundance', 'Black Crappie - Abundance', save_fig = T)
+create_spatial_abun('bluegill', 'CPUE', 'Bluegill - CPUE', save_fig = T)
+create_spatial_abun('bluegill', 'Abundance', 'Bluegill - Abundance', save_fig = T)
+create_spatial_abun('largemouth bass', 'CPUE', 'Largemouth Bass - CPUE', save_fig = T)
+create_spatial_abun('largemouth bass', 'Abundance', 'Largemouth Bass - Abundance', save_fig = T)
+create_spatial_abun('northern pike', 'CPUE', 'Northern Pike - CPUE', save_fig = T)
+create_spatial_abun('northern pike', 'Abundance', 'Northern Pike - Abundance', save_fig = T)
+create_spatial_abun('walleye', 'CPUE', 'Walleye - CPUE', save_fig = T)
+create_spatial_abun('walleye', 'Abundance', 'Walleye - Abundance', save_fig = T)
+create_spatial_abun('yellow perch', 'CPUE', 'Yellow Perch - CPUE', save_fig = T)
+create_spatial_abun('yellow perch', 'Abundance', 'Yellow Perch - Abundance', save_fig = T)
+
+# difference in catchability cold/hot -------------------------------------
+
+
+
+d_plot_lake = function(phis, fish_names, yr, fish_dat){
+  
+  fish_names = str_replace_all(fish_names, " ", "_")
+  
+  tC = temp %>%
+    filter(year(SURVEYDATE) == yr) %>%
+    group_by(SURVEYDATE) %>% 
+    summarise(temp_0 = mean(temp_0))
+  
+  year_select = fish_dat %>% 
+    filter(year(SURVEYDATE) == yr) %>% 
+    select(SURVEYDATE, all_of(catch_covs), GN) %>% 
+    mutate_at(vars(all_of(catch_covs)), .funs = list(GN = ~.*GN))
+  
+  gear_ind = fish_dat %>% 
+    select(SURVEYDATE, EFFORT, GN:TN) %>% 
+    filter(EFFORT != 0) %>% 
+    filter(year(SURVEYDATE) == yr) %>% 
+    pivot_longer(GN:TN, names_to = "Gear", values_to = "Ind") %>% 
+    mutate(Gear = factor(Gear)) %>% 
+    filter(Ind == 1) %>% 
+    group_by(Gear, SURVEYDATE) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-EFFORT) %>% 
+    spread(key = Gear, value = Ind, drop = F, fill = 0)
+  
+  
+  TN_df = year_select %>% 
+    filter(GN != 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 0, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi),
+           DOY_sin_semi_temp = DOY_sin_semi * temp_0,
+           DOY_cos_semi_temp = DOY_cos_semi * temp_0) %>%
+    mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  GN_df = year_select %>% 
+    filter(GN == 1) %>% 
+    distinct(SURVEYDATE, .keep_all = T) %>% 
+    right_join(tC, by = c('SURVEYDATE', 'temp_0')) %>% 
+    arrange(SURVEYDATE) %>% 
+    mutate(GN = 1, 
+           DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/365 * 4*pi),
+           DOY_cos_semi = cos(DOY/365 * 4*pi),
+           DOY_sin_semi_temp = DOY_sin_semi * temp_0,
+           DOY_cos_semi_temp = DOY_cos_semi * temp_0) %>%
+    mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+    select(-c(SURVEYDATE, DOY))
+  
+  TN = as.matrix(TN_df)
+  GN = as.matrix(GN_df)
+  
+  n_runs = dim(phis)[3]
+  
+  post_stores_TN = post_stores_GN = array(NA, dim = c(nrow(tC), length(fnames), n_runs))
+  
+  for(i in 1:n_runs){
+    post_stores_TN[,,i] = TN %*% t(phis[,,i])
+    post_stores_GN[,,i] = GN %*% t(phis[,,i])
+  }
+  
+  TN = apply(post_stores_TN, c(1,2), mean)
+  GN = apply(post_stores_GN, c(1,2), mean)
+  
+  # TN = apply(post_stores_TN, c(1,2), median)
+  # GN = apply(post_stores_GN, c(1,2), median)
+  
+  colnames(TN) = paste0("TN_",fish_names)
+  colnames(GN) = paste0("GN_",fish_names)
+  
+  
+  date_select = year_select %>% 
+    distinct(SURVEYDATE) %>% 
+    mutate(sample_day = SURVEYDATE) %>% 
+    right_join(tC, by = c('SURVEYDATE')) %>% 
+    left_join(gear_ind, by = c('SURVEYDATE')) %>% 
+    select(-c(temp_0)) %>% 
+    mutate_at(vars(GN:TN), ~ if_else(. == 1, SURVEYDATE, NaN)) %>% 
+    select(-sample_day) %>% 
+    arrange(SURVEYDATE) %>% 
+    rename_at(vars(-SURVEYDATE), ~ paste0(., '_survey'))
+  
+  mean = tibble(as_tibble(TN), as_tibble(GN), date_select)
+  
+  return(mean)
+}
+
+yr_1 = 2000
+yr_2 = 2019
+fnames = c('crappie', 'bluegill', 'bass', 'pike', 'walleye', 'perch')
+plt_dat_1 = d_plot_lake(phi, fnames, yr_1, fish_dat)
+plt_dat_2 = d_plot_lake(phi, fnames, yr_2, fish_dat)
+
+
+catch_plt = plt_dat_1 %>% 
+  select(-c(GN_survey:TN_survey)) %>% 
+  pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "catch") %>% 
+  left_join(plt_dat_1 %>%
+              select(SURVEYDATE:TN_survey) %>% 
+              pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "Date"), by = c('Gear', 'SURVEYDATE')) %>% 
+  mutate(SURVEYDATE=ymd(format(SURVEYDATE, paste0(yr_2, "-%m-%d"))),
+         Date=ymd(format(Date, paste0(yr_2, "-%m-%d")))) %>% 
+  select(-sample_day) %>% 
+  mutate(Year = yr_1) %>% 
+  rbind(plt_dat_2 %>% 
+          select(-c(GN_survey:TN_survey)) %>% 
+          pivot_longer(cols = -c(SURVEYDATE), names_to = c("Gear", "Fish"), names_sep = "_", values_to = "catch") %>% 
+          left_join(plt_dat_2 %>%
+                      select(SURVEYDATE:TN_survey) %>% 
+                      pivot_longer(GN_survey:TN_survey, names_to = c('Gear', 'sample_day'), names_sep = "_", values_to = "Date"), by = c('Gear', 'SURVEYDATE')) %>% 
+          select(-sample_day) %>% 
+          mutate(Year = yr_2)) %>% 
+  mutate(Year = as.factor(Year)) %>% 
+  filter(SURVEYDATE > ymd(paste0(yr_2, '-06-01')) & SURVEYDATE < ymd(paste0(yr_2, '-09-15'))) %>% 
+  group_by(Fish) %>% 
+  mutate(catch = (catch - min(catch))/(max(catch) - min(catch)))
+  
+
+
+ggplot(catch_plt, aes(x = SURVEYDATE, y = catch, color = Year, fill = Year)) +
+  geom_line(aes(linetype = Gear), size = 0.9) +
+  facet_wrap(~ Fish) +
+  geom_rug(aes(x = Date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-06-01')), ymd(paste0(yr_2, '-09-15')))) +
+  scale_linetype_manual(values=c("solid", 'longdash')) +
+  ggtitle(paste0('Gear Type Effectiveness by Region')) +
+  xlab('') +
+  ylab('Relative Effectiveness') +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold')) +
+  ylim(c(-0.25, 1.25))
+
+# ggsave('/Users/joshuanorth/Desktop/erin_talk_plots/all_catch.png', width = 14, height = 8)
+
+
+f_plots = unique(catch_plt$Fish)
+f_plot_title = str_to_title(pars$fish_names)
+
+for(i in seq_along(f_plots)){
+  
+  curr_df = catch_plt %>% 
+    filter(Fish == f_plots[i])
+  
+  ggplot(curr_df, aes(x = SURVEYDATE, y = catch, color = Year, fill = Year)) +
+    geom_line(aes(linetype = Gear), size = 1.1) +
+    geom_rug(aes(x = Date), sides="b") +
+    scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-06-01')), ymd(paste0(yr_2, '-09-15')))) +
+    scale_linetype_manual(values = c("solid", "dashed")) +
+    scale_color_manual(values = c('blue', 'black')) +
+    ggtitle(paste0('Gear Type Effectiveness by Region - ', f_plot_title[i])) +
+    xlab('') +
+    ylab('Relative Effectiveness') +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          axis.text = element_text(size = 14),
+          axis.title = element_text(size = 16, face = 'bold'),
+          title = element_text(size = 16, face = 'bold'),
+          legend.position = "bottom",
+          legend.key.width = unit(1.5, 'cm'),
+          strip.text = element_text(size = 14),
+          legend.spacing = unit(5, 'cm'))
+  
+  fpath = paste0('/Users/joshuanorth/Desktop/erin_talk_plots/catchability_lake_comp_', f_plots[i], '.png')
+  ggsave(fpath, width = 14, height = 8)
+  
+}
+
+#################3
+ch_plot = cold %>% 
+  rbind(hot) %>% 
+  mutate(Year = factor(Year)) %>% 
+  ggplot(., aes(x = SURVEYDATE, y = Effectiveness, color = Year, fill = Year)) +
+  geom_line(aes(linetype = Lake), size = 0.9) +
+  facet_wrap(~ Fish + Gear) +
+  geom_rug(aes(x = Date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-06-01')), ymd(paste0(yr_2, '-10-01')))) +
+  scale_linetype_manual(values=c("solid", 'longdash', "dotted")) +
+  ggtitle(paste0('Gear Type Effectiveness by Region')) +
+  xlab('') +
+  ylab('Relative Effectiveness') +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold')) +
+  ylim(c(-25, 25))
+
+# ggsave(paste0('results/spatial_results/catchability_lake_comp_species_', 'cold_hot', '.png'), ch_plot, width = 14, height = 10)
+
+
+cold %>% 
+  rbind(hot) %>% 
+  mutate(Year = factor(Year)) %>% 
+  ggplot(., aes(x = SURVEYDATE, y = exp(Effectiveness), color = Year, fill = Year)) +
+  geom_line(aes(linetype = Lake), size = 0.9) +
+  facet_wrap(~ Fish + Gear) +
+  geom_rug(aes(x = Date), sides="b") +
+  scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-06-01')), ymd(paste0(yr_2, '-10-01')))) +
+  scale_linetype_manual(values=c("solid", 'longdash', "dotted")) +
+  ggtitle(paste0('Gear Type Effectiveness by Region')) +
+  xlab('') +
+  ylab('Relative Effectiveness') +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold')) +
+  ylim(c(0, 180000))
+
+tmp_dat = cold %>% 
+  rbind(hot) %>% 
+  mutate(Eff = exp(Effectiveness))
+
+
+catch_df = cold %>% 
+  mutate(SURVEYDATE=ymd(format(SURVEYDATE, "2019-%m-%d")),
+         Date=ymd(format(Date, "2019-%m-%d"))) %>% 
+  rbind(hot) %>% 
+  mutate(Year = factor(Year),
+         Lake = factor(Lake, levels = c('North', 'Center', 'South')))
+f_plots = unique(catch_df$Fish)
+f_plot_title = str_to_title(pars$fish_names)
+
+for(i in seq_along(f_plots)){
+  
+  curr_df = catch_df %>% 
+    filter(Fish == f_plots[i])
+  
+  ggplot(curr_df, aes(x = SURVEYDATE, y = Effectiveness, color = Lake)) +
+    geom_line(aes(linetype = Year), size = 1.3) +
+    facet_wrap(~ Gear, ncol = 2) +
+    geom_rug(aes(x = Date), sides="b") +
+    scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd(paste0(yr_2, '-06-01')), ymd(paste0(yr_2, '-10-01')))) +
+    scale_linetype_manual(values = c("solid", "dashed")) +
+    scale_color_manual(values = c('blue', 'red', 'black')) +
+    ggtitle(paste0('Gear Type Effectiveness by Region - ', f_plot_title[i])) +
+    xlab('') +
+    ylab('Relative Effectiveness') +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
+          legend.title = element_text(size = 16),
+          legend.text = element_text(size = 16),
+          axis.text = element_text(size = 14),
+          axis.title = element_text(size = 16, face = 'bold'),
+          title = element_text(size = 16, face = 'bold'),
+          legend.position = "bottom",
+          legend.key.width = unit(1.5, 'cm'),
+          strip.text = element_text(size = 14),
+          legend.spacing = unit(5, 'cm'))
+  
+  fpath = paste0('results/spatial_results/catchability_lake_comp_', f_plots[i], '.png')
+  ggsave(fpath, width = 14, height = 8)
+  
+}
+
+lake_dow_south = 53002800 # south
+lake_dow_north = 16001900 # north
+lake_dow_center = 18005000 # center
+
+lake_loc = tibble(DOW = c(lake_dow_south, lake_dow_north, lake_dow_center), lake = c('South', 'North', 'Center')) %>% 
+  mutate(DOW = as.factor(DOW))
+
+lake_loc = effort %>% left_join(static, by = 'DOW') %>% 
+  select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+  mutate(DOW = factor(DOW)) %>% 
+  distinct(DOW, .keep_all = T) %>% 
+  right_join(lake_loc)
+
+
+lats = c(43.50852, 48.72190)
+lons = c(-96.75060, -90.06664)
+
+usa = st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
+
+ggplot(data = lake_loc) +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5), size = 3) +
+  geom_text(aes(label=lake, x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5), hjust=0.5, vjust=-1.1, size = 8) + 
+  xlab("Longitude") +
+  ylab("Latitude") +
+  ggtitle("Lake Location") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+# ggsave(paste0('results/spatial_results/lake_location.png'), width = 8, height = 8)
+
+# infor for lake for erin -------------------------------------------------
+
+lake_num = '42009600'
+fish_dat %>% 
+  filter(DOW == lake_num) %>% 
+  filter(COMMON_NAME =='northern pike')
+
+tmp = fish_dat %>% 
+  filter(DOW == lake_num)
+
+write_csv(tmp, '/Users/joshuanorth/Desktop/erin_talk_plots/question_lake.csv')
+
+tmp = fish_dat %>% 
+  filter(DOW == lake_num) %>% 
+  filter(COMMON_NAME =='northern pike')
+
+write_csv(tmp, '/Users/joshuanorth/Desktop/erin_talk_plots/question_lake_pike.csv')
