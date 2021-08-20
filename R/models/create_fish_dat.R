@@ -157,29 +157,26 @@ fish_dat = fish_dat %>%
                mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0))) %>% 
   inner_join(secchi_year, by = c('DOW', 'year'))
 
-
 fish_dat = fish_dat %>% 
+  inner_join(GDD) %>% 
+  mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% 
+  inner_join(temp %>% 
+               select(SURVEYDATE, temp_0, DOW)) %>% 
+  inner_join(secchi_year, by = c('DOW', 'year')) %>% 
+  filter(year >= 2000) %>% 
+  mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
+  filter(filter_date > ymd('2016-06-01'),
+         filter_date < ymd('2016-09-30')) %>% 
+  select(-filter_date) %>% 
+  mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% 
   mutate(DOY = yday(SURVEYDATE),
-         DOY_sin_semi = sin(DOY/365 * 4*pi),
-         DOY_cos_semi = cos(DOY/365 * 4*pi),
+         DOY_sin_semi = sin(DOY/121 * 2*pi),
+         DOY_cos_semi = cos(DOY/121 * 2*pi),
          DOY_sin_semi_temp = DOY_sin_semi * temp_0,
          DOY_cos_semi_temp = DOY_cos_semi * temp_0) %>% 
   mutate(DOW = as.factor(DOW)) %>% 
   arrange(DOW, year, COMMON_NAME)
 
-fish_dat = fish_dat %>% 
-  mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
-  filter(filter_date > ymd('2016-06-01'),
-         filter_date < ymd('2016-10-01')) %>% 
-  select(-filter_date)
-
-# all_mean = colnames(fish_dat)[c(7, 9, 23, 13:19, 25)]
-# all_mean_log = colnames(fish_dat)[c(7, 9)]
-# all_mean_logit = colnames(fish_dat)[c(13:19)]
-# 
-# p = fish_dat %>% 
-#   select(DD5, temp_0) %>% 
-#   ggpairs()
 
 # write_csv(fish_dat, 'data/fish_dat.csv')
 
@@ -231,10 +228,55 @@ fish_dat %>%
          'total' = 'TOTAL_CATCH') %>% 
   rename_all(~str_to_lower(.)) %>% 
   group_by(fish) %>% 
-  summarise_at(vars(total, cpue), list(min = ~quantile(., probs = 0.01),
-                                       max = ~quantile(., probs = 0.99), 
+  summarise_at(vars(total, cpue), list(min = ~quantile(., probs = 0.02),
+                                       max = ~quantile(., probs = 0.98), 
                                        mean = ~mean(.),
                                        median = ~median(.),
                                        sd = ~sd(.))) %>% 
   pivot_longer(total_min:cpue_sd, names_to = c('Variable', 'Summary'), names_sep = '_', values_to = 'Value') %>% 
   pivot_wider(names_from = 'Summary', values_from = 'Value')
+
+
+fish_dat %>% 
+  select(DOW:CPUE) %>% 
+  rename('fish' = 'COMMON_NAME',
+         'total' = 'TOTAL_CATCH') %>% 
+  rename_all(~str_to_lower(.)) %>% 
+  ggplot(., aes(x = total, y = effort)) +
+  geom_point() +
+  facet_wrap(~fish, scales = 'free')
+
+fish_dat %>% 
+  select(DOW:CPUE) %>% 
+  rename('fish' = 'COMMON_NAME',
+         'total' = 'TOTAL_CATCH') %>% 
+  rename_all(~str_to_lower(.)) %>% 
+  ggplot(., aes(x = total, y = effort)) +
+  geom_point() +
+  facet_wrap(~fish)
+
+
+fish_dat %>% 
+  select(DOW:CPUE) %>% 
+  rename('fish' = 'COMMON_NAME',
+         'total' = 'TOTAL_CATCH') %>% 
+  group_by(fish) %>% 
+  filter(CPUE < quantile(CPUE, probs = 0.99)) %>% 
+  ungroup() %>% 
+  rename_all(~str_to_lower(.)) %>% 
+  ggplot(., aes(x = total, y = effort)) +
+  geom_point() +
+  facet_wrap(~fish, scales = 'free')
+
+
+fish_dat %>% 
+  select(DOW:CPUE) %>% 
+  rename('fish' = 'COMMON_NAME',
+         'total' = 'TOTAL_CATCH') %>% 
+  group_by(fish) %>% 
+  filter(total < quantile(total, probs = 0.97)) %>% 
+  ungroup() %>% 
+  rename_all(~str_to_lower(.)) %>% 
+  ggplot(., aes(x = total, y = effort)) +
+  geom_point() +
+  facet_wrap(~fish, scales = 'free')

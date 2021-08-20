@@ -86,6 +86,9 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
   pars$phi_accept =  array(0, dim = c(K, pars$p_phi))
   pars$phi_prior_var = 100
   
+  pars$gamma = array(0, dim = c(length(lake_index),K))
+  pars$theta = array(0, dim = c(length(lake_index),K))
+  
   # hyperpriors
   pars$Sigma_species = diag(K)
   # pars$nu_species = K + 10
@@ -140,10 +143,12 @@ update_beta <- function(pars){
   # data
   Y = pars$Y
   X = pars$X
-  Z = pars$Z
+  # Z = pars$Z
   effort = pars$effort
   omega = pars$omega_star
-  phi = pars$phi
+  # phi = pars$phi
+  theta = pars$theta
+  gamma = pars$gamma
   
   # parameters
   n = pars$n
@@ -172,15 +177,8 @@ update_beta <- function(pars){
       b_prop = beta_prop[k,i] = rnorm(1, beta_curr[k,i], sig_prop_beta[k,i])
       b_curr = beta_curr[k,i]
       
-      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_curr[k,] + Z[[k]] %*% phi[k,] + OMEGA[,k]), log = T)) + dnorm(b_curr, 0, beta_prior_var, log = T)
-      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_prop[k,] + Z[[k]] %*% phi[k,] + OMEGA[,k]), log = T)) + dnorm(b_prop, 0, beta_prior_var, log = T)
-      
-      # Y_dense = as.numeric(Y[[k]])
-      # lam_curr = as.matrix(effort[[k]]*exp(X[[k]] %*% beta_curr[k,] + Z[[k]] %*% phi[k,] + OMEGA[,k]))
-      # lam_prop = as.matrix(effort[[k]]*exp(X[[k]] %*% beta_prop[k,] + Z[[k]] %*% phi[k,] + OMEGA[,k]))
-      # 
-      # like_curr = sum(dpois(Y[[k]], lambda = lam_curr, log = T)) + dnorm(b_curr, 0, beta_prior_var, log = T)
-      # like_prop = sum(dpois(Y[[k]], lambda = lam_prop, log = T)) + dnorm(b_prop, 0, beta_prior_var, log = T)
+      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_curr[k,] + theta[,k] + OMEGA[,k]), log = T)) + dnorm(b_curr, 0, beta_prior_var, log = T)
+      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta_prop[k,] + theta[,k] + OMEGA[,k]), log = T)) + dnorm(b_prop, 0, beta_prior_var, log = T)
       
       if((like_prop - like_curr) > log(runif(1))){
         beta_curr[k,i] = b_prop
@@ -194,6 +192,10 @@ update_beta <- function(pars){
   pars$beta = beta_curr
   pars$beta_accept = beta_accept
   
+  for(i in 1:K){
+    pars$gamma[,i] = X[[i]] %*% pars$beta[i,] + OMEGA[,i]
+  }
+  
   return(pars)
   
   
@@ -203,11 +205,13 @@ update_phi <- function(pars){
   
   # data
   Y = pars$Y
-  X = pars$X
+  # X = pars$X
   Z = pars$Z
   effort = pars$effort
-  omega = pars$omega_star
-  beta = pars$beta
+  # omega = pars$omega_star
+  # beta = pars$beta
+  theta = pars$theta
+  gamma = pars$gamma
   
   # parameters
   n = pars$n
@@ -221,11 +225,6 @@ update_phi <- function(pars){
   sig_prop_phi = pars$sig_prop_phi
   phi_prior_var = pars$phi_prior_var
   
-  # construct omega
-  ind_array = tibble(id = pars$lake_id, as_tibble(omega, .name_repair = ~LETTERS[1:K]))
-  lake_array = tibble(id = pars$lake_index)
-  OMEGA = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
-  
   # update_phi
   for(i in 1:p_phi){
     for(k in 1:K){
@@ -235,16 +234,9 @@ update_phi <- function(pars){
       p_prop = phi_prop[k,i] = rnorm(1, phi_curr[k,i], sig_prop_phi[k,i])
       p_curr = phi_curr[k,i]
       
-      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + Z[[k]] %*% phi_curr[k,] + OMEGA[,k]), log = T)) + dnorm(p_curr, 0, phi_prior_var, log = T)
-      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + Z[[k]] %*% phi_prop[k,] + OMEGA[,k]), log = T)) + dnorm(p_prop, 0, phi_prior_var, log = T)
-      
-      # Y_dense = as.numeric(Y[[k]])
-      # lam_curr = as.matrix(effort[[k]]*exp(X[[k]] %*% beta[k,] + Z[[k]] %*% phi_curr[k,] + OMEGA[,k]))
-      # lam_prop = as.matrix(effort[[k]]*exp(X[[k]] %*% beta[k,] + Z[[k]] %*% phi_prop[k,] + OMEGA[,k]))
-      # 
-      # like_curr = sum(dpois(Y[[k]], lambda = lam_curr, log = T)) + dnorm(p_curr, 0, phi_prior_var, log = T)
-      # like_prop = sum(dpois(Y[[k]], lambda = lam_prop, log = T)) + dnorm(p_prop, 0, phi_prior_var, log = T)
-      
+      like_curr = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(gamma[,k] + Z[[k]] %*% phi_curr[k,]), log = T)) + dnorm(p_curr, 0, phi_prior_var, log = T)
+      like_prop = sum(dpois(Y[[k]], lambda = effort[[k]]*exp(gamma[,k] + Z[[k]] %*% phi_prop[k,]), log = T)) + dnorm(p_prop, 0, phi_prior_var, log = T)
+    
       if((like_prop - like_curr) > log(runif(1))){
         phi_curr[k,i] = p_prop
         phi_accept[k,i] = 1
@@ -257,12 +249,17 @@ update_phi <- function(pars){
   pars$phi = phi_curr
   pars$phi_accept = phi_accept
   
+  for(i in 1:K){
+    theta[,i] = Z[[k]] %*% pars$phi[k,]
+  }
+  pars$theta = theta - mean(theta)
+  
   return(pars)
   
   
 }
 
-ll_calc <- function(Y, effort, X, beta, Z, phi, omega, mu, K, lake_id, lake_index){
+ll_calc <- function(Y, effort, X, beta, theta, omega, mu, K, lake_id, lake_index){
   
   ind_array = tibble(id = lake_id, as_tibble(omega, .name_repair = ~LETTERS[1:K]))
   lake_array = tibble(id = lake_index)
@@ -271,11 +268,7 @@ ll_calc <- function(Y, effort, X, beta, Z, phi, omega, mu, K, lake_id, lake_inde
   ll = 0
   for(k in 1:K){
     
-    # Y_dense = as.numeric(Y[[k]])
-    # lam = as.matrix(effort[[k]]*exp(X[[k]] %*% beta[k,] + Z[[k]] %*% phi[k,] + OMEGA[,k]))
-    # ll = ll + sum(dpois(Y[[k]], lambda = lam, log = T))
-    
-    ll = ll + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + Z[[k]] %*% phi[k,] + OMEGA[,k]), log = T))
+    ll = ll + sum(dpois(Y[[k]], lambda = effort[[k]]*exp(X[[k]] %*% beta[k,] + theta[,k] + OMEGA[,k]), log = T))
   }
   return(ll)
 }
@@ -286,6 +279,7 @@ update_omega <- function(pars){
   Y = pars$Y
   X = pars$X
   Z = pars$Z
+  # theta = pars$theta
   effort = pars$effort
   mu = pars$mu
   beta = pars$beta
@@ -311,7 +305,7 @@ update_omega <- function(pars){
   nu = v - mean(v)
   
   # ll threshold
-  logy = ll_calc(Y, effort, X, beta, Z, phi, omega, mu, K, lake_id, lake_index) + log(runif(1))
+  logy = ll_calc(Y, effort, X, beta, pars$theta, omega, mu, K, lake_id, lake_index) + log(runif(1))
   
   # draw initial proposal
   theta = runif(1, 0, 2*pi)
@@ -319,7 +313,7 @@ update_omega <- function(pars){
   theta_max = theta
   
   f_proposal = matrix(c(omega) * cos(theta) + nu * sin(theta), ncol = K)
-  logf = ll_calc(Y, effort, X, beta, Z, phi, f_proposal, mu, K, lake_id, lake_index)
+  logf = ll_calc(Y, effort, X, beta, pars$theta, f_proposal, mu, K, lake_id, lake_index)
   
   if(logf > logy){
     keeper = f_proposal
@@ -333,7 +327,7 @@ update_omega <- function(pars){
       }
       theta = runif(1, theta_min, theta_max)
       f_proposal = matrix(c(omega) * cos(theta) + nu * sin(theta), ncol = K)
-      logf = ll_calc(Y, effort, X, beta, Z, phi, f_proposal, mu, K, lake_id, lake_index)
+      logf = ll_calc(Y, effort, X, beta, pars$theta, f_proposal, mu, K, lake_id, lake_index)
     }
     
     keeper = f_proposal
@@ -356,8 +350,6 @@ update_sigma_species <- function(pars){
   mu = pars$mu
   Sigma_spatial_inv = pars$Sigma_spatial_inv
   
-  # nu_species = pars$nu_species
-  # Psi_species = pars$Psi_species
   nu_species = pars$nu_species
   a = pars$a
   A = pars$A
@@ -365,13 +357,6 @@ update_sigma_species <- function(pars){
   # parameters
   K = pars$K
   n_lakes = pars$n_lakes
-  
-  # nu_hat = nu_species + n_lakes
-  # psi_hat = Psi_species + t(omega) %*% Sigma_spatial_inv %*% (omega)
-  # 
-  # pars$Sigma_species = MCMCpack::riwish(nu_hat, psi_hat)
-  
-  
   
   # update sigma species
   nu_hat = n_lakes + nu_species + K - 1

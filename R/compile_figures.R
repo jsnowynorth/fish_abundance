@@ -182,9 +182,9 @@ fish_dat = fish_dat %>%
          COMMON_NAME = as.factor(COMMON_NAME)) %>% 
   arrange(DOW, year, COMMON_NAME)
 
-fish_dat = fish_dat %>%
-  filter(year >= 2000) %>% 
-  mutate(DOW = droplevels(DOW))
+# fish_dat = fish_dat %>%
+#   filter(year >= 2000) %>% 
+#   mutate(DOW = droplevels(DOW))
 
 source('R/lewis_code/lewis_model.R')
 # source('R/lewis_code/lewis_model_no_spatial.R')
@@ -211,12 +211,39 @@ gear_types = colnames(fish_dat)[c(21, 22)]
 #   plot(phi[6,i,], type = 'l')
 # }
 
-run = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_5_tmp.rds')
+# run = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_5_tmp.rds')
 # run = read_rds(file = '/Users/joshuanorth/Desktop/full_model_non_spatial_3.rds')
+run = read_rds(file = '/Users/joshuanorth/Desktop/new_mod/full_model_spatial_mean_1.rds')
+run = read_rds(file = '/Users/joshuanorth/Desktop/new_mod/full_model_spatial_mean_1_500.rds')
+run = read_rds(file = '/Users/joshuanorth/Desktop/new_mod/full_model_spatial_mean_1_1000.rds')
 beta = run$beta
 phi = run$phi
 omega = run$omega
 sigma_species = run$sigma_species
+
+
+run_1 = read_rds(file = '/Users/joshuanorth/Desktop/new_mod/full_model_spatial_mean_1.rds')
+run_2 = read_rds(file = '/Users/joshuanorth/Desktop/new_mod/full_model_spatial_mean_2.rds')
+
+run_1 = read_rds(file = '/Users/joshuanorth/Desktop/new_mod/full_model_spatial_mean_1_500.rds')
+run_2 = read_rds(file = '/Users/joshuanorth/Desktop/new_mod/full_model_spatial_mean_2_500.rds')
+
+run_1 = read_rds(file = '/Users/joshuanorth/Desktop/fish_results/non_spatial/full_model_non_spatial_1.rds')
+run_2 = read_rds(file = '/Users/joshuanorth/Desktop/fish_results/non_spatial/full_model_non_spatial_2.rds')
+
+beta = abind(run_1$beta, 
+             run_2$beta, along = 3)
+
+phi = abind(run_1$phi, 
+            run_2$phi, along = 3)
+
+omega = abind(run_1$omega, 
+              run_2$omega, along = 3)
+
+sigma_species = abind(run_1$sigma_species, 
+                      run_2$sigma_species, along = 3)
+
+rm(run_1, run_2)
 
 
 # run_1 = read_rds(file = '/Users/joshuanorth/Desktop/full_model_spatial_mean_1_tmp.rds')
@@ -285,9 +312,15 @@ b_names = colnames(pars$X[[1]])
 phi_names = colnames(pars$Z[[1]])
 
 b_hat = apply(beta, c(1,2), mean)
+phi_hat = apply(phi, c(1,2), mean)
 
 round(b_hat, 3) %>%
   as_tibble(.name_repair = ~b_names) %>%
+  mutate(Species = pars$fish_names) %>%
+  relocate(Species)
+
+round(phi_hat, 3) %>%
+  as_tibble(.name_repair = ~phi_names) %>%
   mutate(Species = pars$fish_names) %>%
   relocate(Species)
 
@@ -313,8 +346,9 @@ round(b_hat, 3) %>%
 fnames = pars$fish_names %>% str_replace(., ' ', '_')
 
 for(j in 1:6){
-  png(paste0('/Users/joshuanorth/Desktop/mean_chains/', fnames[j], '.png'), width = 800, height = 600)
+  # png(paste0('/Users/joshuanorth/Desktop/mean_chains/', fnames[j], '.png'), width = 800, height = 600)
   # png(paste0('/Users/joshuanorth/Desktop/full_chains/', fnames[j], '.png'), width = 800, height = 600)
+  png(paste0('/Users/joshuanorth/Desktop/non_spatial_chains/', fnames[j], '.png'), width = 800, height = 600)
   par(mfrow = c(3,3))
   for(i in 1:9){
     plot(beta[j,i,], type = 'l', main = b_names[i])
@@ -2557,3 +2591,21 @@ tmp = fish_dat %>%
   filter(COMMON_NAME =='northern pike')
 
 write_csv(tmp, '/Users/joshuanorth/Desktop/erin_talk_plots/question_lake_pike.csv')
+
+
+# posterior histograms ----------------------------------------------------
+
+theta_post = array(NA, dim = c(nrow(pars$Z[[1]]), pars$K, dim(run$phi)[3]))
+gamma_post = array(NA, dim = c(nrow(pars$X[[1]]), pars$K, dim(run$beta)[3]))
+
+for(i in 1:dim(run$phi)[3]){
+  for(j in 1:pars$K){
+    theta_post[,j,i] = pars$Z[[j]] %*% run$phi[j,,i]
+    gamma_post[,j,i] = pars$X[[j]] %*% run$beta[j,,i]
+  }
+}
+
+hist(theta_post)
+hist(gamma_post)
+
+theta_post_mean = apply(theta_post, c(1,2), mean)
