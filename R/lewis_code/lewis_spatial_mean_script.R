@@ -75,12 +75,32 @@ fish_tmp = fish_dat %>%
 
 # length(unique(fish_tmp$DOW))
 
+# X = fish_tmp %>% 
+#   filter(COMMON_NAME == 'bluegill') %>% 
+#   select(all_of(mean_covs)) %>% 
+#   mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
+#   mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
+#   mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
+#   mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
+#   mutate(secchi = secchi - mean(secchi)) %>% 
+#   as.matrix()
+# 
+# Y = fish_tmp %>%
+#   select(CPUE, COMMON_NAME, DOW, SURVEYDATE, TN) %>%
+#   pivot_wider(names_from = 'COMMON_NAME', values_from = 'CPUE') %>% 
+#   select(-c(DOW, SURVEYDATE, TN)) %>% 
+#   as.matrix()
+# 
+# t(solve(t(X) %*% X) %*% t(X) %*% log(Y + 0.00001))
+# 
+# log(apply(Y, 2, mean))
 
 
 save_pars_spatial_mean = create_pars(fish_tmp, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs)
 # save_pars_spatial_mean = read_rds('/home/jntmf/data/fish/new_mod/curr_pars_spatial_mean.rds')
-run = sampler(nits = 100000, burnin = 200, thin = 10, check_num = 50, pars = save_pars_spatial_mean)
+run = sampler(nits = 50000, burnin = 100, thin = 10, check_num = 50, pars = save_pars_spatial_mean)
 
+# saveRDS(run$pars, file = '/Users/joshuanorth/Desktop/constrained_run.rds')
 saveRDS(run$pars, file = '/home/jntmf/data/fish/new_mod/curr_pars_spatial_mean.rds')
 saveRDS(run, file = '/home/jntmf/data/fish/new_mod/full_model_spatial_mean_1.rds')
 # saveRDS(run, file = '/home/jntmf/data/fish/new_mod/full_model_spatial_mean_2.rds')
@@ -89,14 +109,81 @@ saveRDS(run, file = '/home/jntmf/data/fish/new_mod/full_model_spatial_mean_1.rds
 # saveRDS(run, file = '/home/jntmf/data/fish/new_mod/full_model_spatial_mean_5.rds')
 
 
+# nits = 75000
+# burnin = 100
+# thin = 10
+# check_num = 50
+# pars = save_pars_spatial_mean
+
+apply(run$beta_accept, c(1,2), mean)
+
+par(mfrow = c(2,3))
+for(i in 1:6){
+  plot(run$beta_0[i,], type = 'l')
+}
+
+
+png(paste0('/Users/joshuanorth/Desktop/phi_chains/beta_0.png'), width = 800, height = 600)
+par(mfrow = c(2,3))
+for(i in 1:6){
+  plot(run$beta_0[i,], type = 'l')
+}
+dev.off()
+
+
+apply(run$beta, c(1,2), mean)
+
 par(mfrow = c(3,3))
-for(i in 1:9){
+for(i in 1:8){
   plot(run$beta[6,i,], type = 'l')
   abline(h = 0)
+}
+
+fnames = run$pars$fish_names %>% str_replace(., ' ', '_')
+for(j in 1:6){
+  # png(paste0('/Users/joshuanorth/Desktop/mean_chains/', fnames[j], '.png'), width = 800, height = 600)
+  # png(paste0('/Users/joshuanorth/Desktop/full_chains/', fnames[j], '.png'), width = 800, height = 600)
+  png(paste0('/Users/joshuanorth/Desktop/phi_chains/', fnames[j], '_beta.png'), width = 800, height = 600)
+  par(mfrow = c(3,3))
+  for(i in 1:8){
+    plot(run$beta[j,i,], type = 'l')
+    abline(h = 0)
+  }
+  dev.off()
 }
 
 
 par(mfrow = c(3,4))
 for(i in 1:11){
-  plot(run$phi[4,i,], type = 'l')
+  plot(run$phi[6,i,], type = 'l')
+}
+
+fnames = run$pars$fish_names %>% str_replace(., ' ', '_')
+for(j in 1:6){
+  # png(paste0('/Users/joshuanorth/Desktop/mean_chains/', fnames[j], '.png'), width = 800, height = 600)
+  # png(paste0('/Users/joshuanorth/Desktop/full_chains/', fnames[j], '.png'), width = 800, height = 600)
+  png(paste0('/Users/joshuanorth/Desktop/phi_chains/', fnames[j], '_phi.png'), width = 800, height = 600)
+  par(mfrow = c(3,4))
+  for(i in 1:11){
+    plot(run$phi[j,i,], type = 'l')
+  }
+  dev.off()
+}
+
+
+
+par(mfrow = c(3,6))
+for(i in 201:203){
+  plot(run$omega[i,1,], type = 'l', main = run$pars$fish_names[1])
+  plot(run$omega[i,2,], type = 'l', main = run$pars$fish_names[2])
+  plot(run$omega[i,3,], type = 'l', main = run$pars$fish_names[3])
+  plot(run$omega[i,4,], type = 'l', main = run$pars$fish_names[4])
+  plot(run$omega[i,5,], type = 'l', main = run$pars$fish_names[5])
+  plot(run$omega[i,6,], type = 'l', main = run$pars$fish_names[6])
+}
+
+
+par(mfrow = c(2,3))
+for(i in 1:6){
+  plot(run$sigma_species[i,6,], type = 'l')
 }
