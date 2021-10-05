@@ -149,26 +149,61 @@ fish_dat <- fish_dat %>%
   arrange(DOW)
 
 # add temperature 
-fish_dat = fish_dat %>% 
-  inner_join(GDD) %>% 
-  mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% 
-  inner_join(temp %>% 
-               select(SURVEYDATE, temp_0, DOW) %>% 
-               mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0))) %>% 
-  inner_join(secchi_year, by = c('DOW', 'year'))
+# fish_dat = fish_dat %>% 
+#   inner_join(GDD) %>% 
+#   mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% 
+#   inner_join(temp %>% 
+#                select(SURVEYDATE, temp_0, DOW) %>% 
+#                mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0))) %>% 
+#   inner_join(secchi_year, by = c('DOW', 'year'))
 
+# center by all lakes all time
+# fish_dat = fish_dat %>% 
+#   inner_join(GDD) %>% 
+#   mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% 
+#   inner_join(temp %>% 
+#                select(SURVEYDATE, temp_0, DOW)) %>% 
+#   inner_join(secchi_year, by = c('DOW', 'year')) %>% 
+#   filter(year >= 2000) %>% 
+#   mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
+#   filter(filter_date > ymd('2016-06-01'),
+#          filter_date < ymd('2016-09-30')) %>% 
+#   select(-filter_date) %>% 
+#   mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% 
+#   mutate(DOY = yday(SURVEYDATE),
+#          DOY_sin_semi = sin(DOY/121 * 2*pi),
+#          DOY_cos_semi = cos(DOY/121 * 2*pi),
+#          DOY_sin_semi_temp = DOY_sin_semi * temp_0,
+#          DOY_cos_semi_temp = DOY_cos_semi * temp_0) %>% 
+#   mutate(DOW = as.factor(DOW)) %>% 
+#   arrange(DOW, year, COMMON_NAME)
+
+
+# center temp by subset of lakes
+center_temp = temp %>% 
+  select(SURVEYDATE, temp_0, DOW) %>% 
+  mutate(year = year(SURVEYDATE)) %>% 
+  filter(year >= 2000) %>% 
+  mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
+  filter(filter_date > ymd('2016-06-01'),
+         filter_date < ymd('2016-09-30')) %>% 
+  select(-filter_date) %>% 
+  group_by(DOW, year) %>% 
+  mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% 
+  ungroup()
+
+# center by lake by year
 fish_dat = fish_dat %>% 
   inner_join(GDD) %>% 
-  mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% 
-  inner_join(temp %>% 
-               select(SURVEYDATE, temp_0, DOW)) %>% 
   inner_join(secchi_year, by = c('DOW', 'year')) %>% 
   filter(year >= 2000) %>% 
   mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
   filter(filter_date > ymd('2016-06-01'),
          filter_date < ymd('2016-09-30')) %>% 
   select(-filter_date) %>% 
-  mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% 
+  inner_join(center_temp %>% 
+               select(SURVEYDATE, temp_0, DOW)) %>% 
+  mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% 
   mutate(DOY = yday(SURVEYDATE),
          DOY_sin_semi = sin(DOY/121 * 2*pi),
          DOY_cos_semi = cos(DOY/121 * 2*pi),
@@ -177,6 +212,9 @@ fish_dat = fish_dat %>%
   mutate(DOW = as.factor(DOW)) %>% 
   arrange(DOW, year, COMMON_NAME)
 
+
+
+  
 
 # write_csv(fish_dat, 'data/fish_dat.csv')
 

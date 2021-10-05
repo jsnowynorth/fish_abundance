@@ -86,25 +86,24 @@ data {
   int n_lakes; // number of lakes
   matrix[N, n_lakes] each_lake; // mapping for spatial random effect
   // matrix[n_lakes, n_lakes] Sigma_spatial; // Spatial correlation matrix
-  // matrix[n_lakes, n_lakes] P; // Spatial projection matrix
-  
   
 }
 
-// transformed data{
-// 
-//   matrix[n_lakes, n_lakes] Sigma_spatial_chol = cholesky_decompose(Sigma_spatial); // Spatial correlation matrix
-// 
-// }
+transformed data{
+
+  // matrix[n_lakes, n_lakes] Sigma_spatial_chol = cholesky_decompose(Sigma_spatial); // Spatial correlation matrix
+  matrix[n_lakes, n_lakes] diag_lake = diag_matrix(rep_vector(0, n_lakes));
+
+}
 
 parameters {
   
   vector[K] beta_0; // intercept
   matrix[p_beta, K] beta; // abundance parameters
   matrix[p_phi, K] phi; // catchability parameters
-  corr_matrix[K] Sigma_species; // species correlation
+  
+  cholesky_factor_corr[K] Sigma_species; // species correlation
   vector<lower=0>[K] tau; // species scale
-  // vector[n_lakes*K] z; // random effect sample - the matt
   matrix[n_lakes, K] z; // random effect sample - the matt
   
 }
@@ -113,8 +112,8 @@ transformed parameters{
   
   matrix[n_lakes, K] omega; // species random effect
   
-  // omega = to_matrix(kronecker_prod(cholesky_decompose(quad_form_diag(Sigma_species, tau)), Sigma_spatial_chol) * z, n_lakes, K);
-  omega = z * quad_form_diag(Sigma_species, tau);
+  // omega = to_matrix(kronecker_prod(cholesky_decompose(quad_form_diag(Sigma_species, tau)), diag_lake) * z, n_lakes, K);
+  omega = z * diag_pre_multiply(tau, Sigma_species);
   
 }
 
@@ -149,7 +148,7 @@ model {
   to_vector(beta) ~ normal(0, 5); // beta prior
   to_vector(phi) ~ normal(0, 5); // phi prior
   tau ~ cauchy(0, 2.5); // scale prior
-  Sigma_species ~ lkj_corr(1); // Sigma_species prior, parameter determines strength of correlation, https://distribution-explorer.github.io/multivariate_continuous/lkj.html
+  Sigma_species ~ lkj_corr_cholesky(1); // Sigma_species prior, parameter determines strength of correlation, https://distribution-explorer.github.io/multivariate_continuous/lkj.html
   to_vector(z) ~ std_normal(); // omega prior
   
   

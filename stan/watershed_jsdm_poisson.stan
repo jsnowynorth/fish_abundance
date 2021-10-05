@@ -83,19 +83,18 @@ data {
   matrix[N, p_beta] X; // design matrix abundance
   matrix[N, p_phi] Z; // design matrix catchability
   
-  int n_lakes; // number of lakes
-  matrix[N, n_lakes] each_lake; // mapping for spatial random effect
-  // matrix[n_lakes, n_lakes] Sigma_spatial; // Spatial correlation matrix
-  // matrix[n_lakes, n_lakes] P; // Spatial projection matrix
+  int n_water; // number of lakes
+  matrix[N, n_water] each_water; // mapping for spatial random effect
+  matrix[n_water, n_water] Sigma_spatial; // Spatial correlation matrix
   
   
 }
 
-// transformed data{
-// 
-//   matrix[n_lakes, n_lakes] Sigma_spatial_chol = cholesky_decompose(Sigma_spatial); // Spatial correlation matrix
-// 
-// }
+transformed data{
+
+  matrix[n_water, n_water] Sigma_spatial_chol = cholesky_decompose(Sigma_spatial); // Spatial correlation matrix
+
+}
 
 parameters {
   
@@ -104,36 +103,34 @@ parameters {
   matrix[p_phi, K] phi; // catchability parameters
   corr_matrix[K] Sigma_species; // species correlation
   vector<lower=0>[K] tau; // species scale
-  // vector[n_lakes*K] z; // random effect sample - the matt
-  matrix[n_lakes, K] z; // random effect sample - the matt
+  vector[n_water*K] z; // random effect sample - the matt
   
 }
 
 transformed parameters{
   
-  matrix[n_lakes, K] omega; // species random effect
+  matrix[n_water, K] omega; // species random effect
   
-  // omega = to_matrix(kronecker_prod(cholesky_decompose(quad_form_diag(Sigma_species, tau)), Sigma_spatial_chol) * z, n_lakes, K);
-  omega = z * quad_form_diag(Sigma_species, tau);
+  omega = to_matrix(kronecker_prod(cholesky_decompose(quad_form_diag(Sigma_species, tau)), Sigma_spatial_chol) * z, n_water, K);
   
 }
 
 model {
   
   // transform variables
-  matrix[N, K] B0; // intercept
+  matrix[N, K] B0; // unbounded catchability
   matrix[N, K] theta_star; // unbounded catchability
   matrix[N, K] theta; // bounded catchability
   matrix[N, K] gamma; // abundance
   matrix[N, K] lambda; // mean intensity function
   matrix[N, K] OMEGA; // lake-wise random effect
-  vector[n_lakes*K] zeros = rep_vector(0, n_lakes*K);
+  vector[n_water*K] zeros = rep_vector(0, n_water*K);
   vector[N*K] lambda_vec; // lambda vector
 
   // define intensity variables
   B0 = rep_matrix(beta_0, N)';
   
-  OMEGA = each_lake * omega;
+  OMEGA = each_water * omega;
   
   gamma = B0 + X * beta + OMEGA;
   
@@ -145,12 +142,12 @@ model {
   lambda_vec = to_vector(lambda);
   
   // priors - https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
-  beta_0 ~ normal(0, 5); // beto 0 prior
-  to_vector(beta) ~ normal(0, 5); // beta prior
-  to_vector(phi) ~ normal(0, 5); // phi prior
+  beta_0 ~ normal(0, 10); // beto 0 prior
+  to_vector(beta) ~ normal(0, 10); // beta prior
+  to_vector(phi) ~ normal(0, 10); // phi prior
   tau ~ cauchy(0, 2.5); // scale prior
   Sigma_species ~ lkj_corr(1); // Sigma_species prior, parameter determines strength of correlation, https://distribution-explorer.github.io/multivariate_continuous/lkj.html
-  to_vector(z) ~ std_normal(); // omega prior
+  z ~ std_normal(); // omega prior
   
   
   y_vec ~ poisson_log(lambda_vec);

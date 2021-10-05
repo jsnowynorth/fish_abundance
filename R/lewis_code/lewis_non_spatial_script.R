@@ -34,18 +34,20 @@ library(spam)
 
 # source functions --------------------------------------------------------
 source('/home/jntmf/data/fish/code/lewis_model_no_spatial.R')
+# source('R/lewis_code/lewis_model_no_spatial.R')
 
 # load data ---------------------------------------------------------------
 fish_dat = read_csv('/home/jntmf/data/fish/data/fish_dat.csv')
+# fish_dat = read_csv('data/fish_dat.csv')
 
 
 fish_dat = fish_dat %>% 
   mutate(DOW = as.factor(DOW),
          COMMON_NAME = as.factor(COMMON_NAME))
 
-fish_dat = fish_dat %>%
-  filter(year >= 2000) %>% 
-  mutate(DOW = droplevels(DOW))
+# fish_dat = fish_dat %>%
+#   filter(year >= 2000) %>% 
+#   mutate(DOW = droplevels(DOW))
 
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:15,17, 25)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]
@@ -57,7 +59,7 @@ gear_types = colnames(fish_dat)[c(21, 22)]
 
 curr_pars_non_spatial = create_pars(fish_dat, mean_covs, mean_covs_log, mean_covs_logit, catch_covs)
 # curr_pars_non_spatial = read_rds('/home/jntmf/data/fish/results/non_spatial/curr_pars_non_spatial.rds')
-run = sampler(nits = 50000, burnin = 1000, thin = 10, check_num = 100, pars = curr_pars_non_spatial)
+run = sampler(nits = 50000, burnin = 1000, thin = 10, check_num = 50, pars = curr_pars_non_spatial)
 
 saveRDS(run$pars, file = '/home/jntmf/data/fish/results/non_spatial/curr_pars_non_spatial.rds')
 saveRDS(run, file = '/home/jntmf/data/fish/results/non_spatial/full_model_non_spatial_1.rds')
@@ -66,3 +68,4 @@ saveRDS(run, file = '/home/jntmf/data/fish/results/non_spatial/full_model_non_sp
 # saveRDS(run, file = '/home/jntmf/data/fish/results/non_spatial/full_model_non_spatial_4.rds')
 # saveRDS(run, file = '/home/jntmf/data/fish/results/non_spatial/full_model_non_spatial_5.rds')
 
+# apply(run$beta, c(1,2), mean)

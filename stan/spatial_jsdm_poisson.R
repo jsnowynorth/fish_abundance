@@ -15,20 +15,20 @@ fish_dat = fish_dat %>%
 
 # 308 lakes
 # only lakes observed 4 or more times
-# fish_dat = fish_dat %>% 
-#   group_by(DOW) %>% 
-#   filter(n() >= 2*12) %>% 
-#   ungroup() %>% 
-#   mutate_at(vars(DOW), ~droplevels(.))
-# 
-# length(table(fish_dat$DOW))
+fish_dat = fish_dat %>%
+  group_by(DOW) %>%
+  filter(n() >= 6*12) %>%
+  ungroup() %>%
+  mutate_at(vars(DOW), ~droplevels(.))
+
+length(table(fish_dat$DOW))
 
 
-mean_covs = colnames(fish_dat)[c(7, 9, 23, 25, 13:15,17)]
-temporal_covs = colnames(fish_dat)[c(23, 25)]
+mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15,17)]
+temporal_covs = colnames(fish_dat)[c(23, 24)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]
 mean_covs_logit = colnames(fish_dat)[c(13:15,17)]
-catch_covs = colnames(fish_dat)[c(24, 27:30)] # temp doy interaction
+catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
 gear_types = colnames(fish_dat)[c(21, 22)]
 
 # mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:15,17, 25)]
@@ -64,23 +64,23 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
   
   
   # projection matrix
-  # P = fish_dat %>% 
-  #   distinct(DOW, .keep_all = T) %>%
-  #   select(all_of(mean_covs), DOW) %>% 
-  #   select(-all_of(temporal_covs), DOW) %>% 
-  #   left_join(fish_dat %>% 
-  #               select(DOW, all_of(temporal_covs)) %>% 
-  #               group_by(DOW) %>% 
-  #               summarise_all(mean), by = 'DOW') %>% 
-  #   select(-DOW) %>% 
-  #   mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-  #   mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-  #   mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-  #   mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
-  #   # mutate(secchi = secchi - mean(secchi)) %>% 
-  #   as.matrix()
-  # 
-  # pars$P = diag(nrow(P)) - P %*% solve(t(P) %*% P) %*% t(P)
+  P = fish_dat %>%
+    distinct(DOW, .keep_all = T) %>%
+    select(all_of(mean_covs), DOW) %>%
+    select(-all_of(temporal_covs), DOW) %>%
+    left_join(fish_dat %>%
+                select(DOW, all_of(temporal_covs)) %>%
+                group_by(DOW) %>%
+                summarise_all(mean), by = 'DOW') %>%
+    select(-DOW) %>%
+    mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>%
+    mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>%
+    mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>%
+    mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>%
+    # mutate(secchi = secchi - mean(secchi)) %>%
+    as.matrix()
+
+  pars$P = diag(nrow(P)) - P %*% solve(t(P) %*% P) %*% t(P)
   
   
   pars$Y = fish_dat %>% 
@@ -159,21 +159,22 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs)
 
-# out = stan(file = 'stan/jsdm_poisson.stan', data = dat, iter = 1000, warmup = 500, chains = 1, cores = 1) # non-spatial
-
-# out = stan(file = 'stan/spatial_jsdm_poisson.stan', data = dat, iter = 1000, warmup = 500, chains = 1, cores = 1) # spatial
-
-out = stan(file = 'stan/spatial_jsdm_poisson_cholesky.stan', data = dat, iter = 1000, warmup = 500, 
-           chains = 2, cores = 2) # spatial cholesky
-
-# out = stan(file = 'stan/test.stan', data = dat, iter = 400, warmup = 200, chains = 1, cores = 1) # spatial cholesky
+out = stan(file = 'stan/spatial_jsdm_poisson_cholesky.stan', data = dat, iter = 1000, warmup = 500, chains = 1, cores = 1) # spatial cholesky
+# saveRDS(out, '/Users/joshuanorth/Desktop/stan_spatial_new.rds')
 
 
 chains = extract(out, permuted = T)
 names(chains)
 lapply(chains, dim)
 
-# saveRDS(chains, '/Users/joshuanorth/Desktop/stan_spatial.rds')
+b_stan = t(apply(chains$beta, c(2,3), mean))
+colnames(b_stan) = colnames(head(dat$X))
+rownames(b_stan) = dat$fish_names
+int = apply(chains$beta_0, 2, mean)
+b_stan = cbind(b_stan, int)
+b_stan
+
+# saveRDS(out, '/Users/joshuanorth/Desktop/stan_spatial.rds')
 
 par(mfrow = c(2,3))
 for(i in 1:6){
@@ -187,7 +188,7 @@ for(i in 1:8){
 
 par(mfrow = c(3,4))
 for(i in 1:11){
-  plot(chains$phi[,i,1], type = 'l', main = i)
+  plot(chains$phi[,i,5], type = 'l', main = i)
 }
 
 par(mfrow = c(2,3))
@@ -219,4 +220,156 @@ plot(chains$lp__, type = 'l')
 
 
 
+# relative abundance ------------------------------------------------------
+
+beta_0 = chains$beta_0
+beta = chains$beta
+phi = chains$phi
+omega = chains$omega
+sigma_species = chains$Sigma_species
+tau = chains$tau
+
+b_names = colnames(dat$X)
+phi_names = colnames(dat$Z)
+
+static = read_csv('data/Static_MN_Data_JE.csv') %>% mutate(DOW = (str_pad(DOW, 8, side = "left", pad = "0")))
+effort = read_csv('data/MN_catch_survey.csv') %>% mutate(DOW = (str_pad(DOW, 8, side = "left", pad = "0")))
+
+fish_dat = fish_dat %>% 
+  arrange(DOW, SURVEYDATE, COMMON_NAME, GN)
+
+b_hat = t(apply(beta, c(2,3), mean))
+colnames(b_hat) = b_names
+
+phi_hat = t(apply(phi, c(2,3), mean))
+colnames(phi_hat) = phi_names
+
+# construct omega
+K = length(dat$fish_names)
+omega_hat = apply(omega, c(2,3), mean)
+ind_array = tibble(id = dat$lake_id, as_tibble(omega_hat, .name_repair = ~LETTERS[1:K]))
+lake_array = tibble(id = dat$lake_index)
+omega_hat = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
+
+
+lam_hat = list()
+for(k in 1:K){
+  lam_hat[[k]] = exp(dat$X %*% b_hat[k,] + omega_hat[,k] + dat$Z %*% phi_hat[k,])
+}
+
+
+rel_abun = rbind(fish_dat %>% filter(COMMON_NAME == 'black crappie') %>% mutate(Abundance = lam_hat[[1]]),
+                 fish_dat %>% filter(COMMON_NAME == 'bluegill') %>% mutate(Abundance = lam_hat[[2]]),
+                 fish_dat %>% filter(COMMON_NAME == 'largemouth bass') %>% mutate(Abundance = lam_hat[[3]]),
+                 fish_dat %>% filter(COMMON_NAME == 'northern pike') %>% mutate(Abundance = lam_hat[[4]]),
+                 fish_dat %>% filter(COMMON_NAME == 'walleye') %>% mutate(Abundance = lam_hat[[5]]),
+                 fish_dat %>% filter(COMMON_NAME == 'yellow perch') %>% mutate(Abundance = lam_hat[[6]]))
+
+
+rel_abun = rel_abun %>% 
+  mutate(Fish = str_replace_all(COMMON_NAME, " ", "_")) %>% 
+  left_join(effort %>% 
+              left_join(static, by = 'DOW') %>% 
+              select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+              mutate(DOW = factor(DOW)) %>% 
+              distinct(DOW, .keep_all = T), by = 'DOW')
+
+lats = range(rel_abun$LAKE_CENTER_LAT_DD5, na.rm = T)
+lons = range(rel_abun$LAKE_CENTER_LONG_DD5, na.rm = T)
+
+usa = st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = rel_abun, 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance), size = 3) +
+  scale_color_gradient(low = 'green', high = 'purple') +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  facet_wrap(~Fish, 
+             labeller = labeller(Fish = c('black_crappie' = 'Black Crappie',
+                                          'bluegill' = 'Bluegill',
+                                          'northern_pike' = 'Northern Pike',
+                                          'yellow_perch' = 'Yellow Perch',
+                                          'largemouth_bass' = 'Largemouth Bass',
+                                          'walleye' = 'Walleye'))) +
+  ggtitle("Relative Abundance") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
+
+
+rel_abun %>% 
+  dplyr::select(-c(MAX_DEPTH_FEET:DOY_cos_semi_temp)) %>% 
+  group_by(COMMON_NAME) %>% 
+  filter(CPUE == max(CPUE))
+
+rel_abun %>% 
+  dplyr::select(-c(MAX_DEPTH_FEET:DOY_cos_semi_temp)) %>% 
+  group_by(COMMON_NAME) %>% 
+  filter(Abundance == max(Abundance))
+
+
+# spatial random effect ---------------------------------------------------
+
+
+
+# construct omega
+K = length(dat$fish_names)
+omega_hat = apply(omega, c(2,3), mean)
+ind_array = tibble(id = dat$lake_id, as_tibble(omega_hat, .name_repair = ~LETTERS[1:K]))
+lake_array = tibble(id = dat$lake_index)
+omega_hat = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
+
+spat_pat = rbind(fish_dat %>% filter(COMMON_NAME == 'black crappie') %>% mutate(Abundance = omega_hat[,1]),
+                 fish_dat %>% filter(COMMON_NAME == 'bluegill') %>% mutate(Abundance = omega_hat[,2]),
+                 fish_dat %>% filter(COMMON_NAME == 'largemouth bass') %>% mutate(Abundance = omega_hat[,3]),
+                 fish_dat %>% filter(COMMON_NAME == 'northern pike') %>% mutate(Abundance = omega_hat[,4]),
+                 fish_dat %>% filter(COMMON_NAME == 'walleye') %>% mutate(Abundance = omega_hat[,5]),
+                 fish_dat %>% filter(COMMON_NAME == 'yellow perch') %>% mutate(Abundance = omega_hat[,6]))
+
+spat_pat = spat_pat %>% 
+  mutate(Fish = str_replace_all(COMMON_NAME, " ", "_")) %>% 
+  left_join(effort %>% 
+              left_join(static, by = 'DOW') %>% 
+              select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+              mutate(DOW = factor(DOW)) %>% 
+              distinct(DOW, .keep_all = T), by = 'DOW') %>% 
+  group_by(COMMON_NAME) %>% 
+  distinct(DOW, .keep_all = T) %>% 
+  ungroup()
+
+lats = range(spat_pat$LAKE_CENTER_LAT_DD5, na.rm = T)
+lons = range(spat_pat$LAKE_CENTER_LONG_DD5, na.rm = T)
+
+usa = st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = spat_pat, 
+             aes(x = LAKE_CENTER_LONG_DD5, y = LAKE_CENTER_LAT_DD5, color = Abundance), size = 3) +
+  scale_color_gradientn(colors = fields::two.colors(start = 'blue', end = 'red', middle = 'white')) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  facet_wrap(~Fish, 
+             labeller = labeller(Fish = c('black_crappie' = 'Black Crappie',
+                                          'bluegill' = 'Bluegill',
+                                          'northern_pike' = 'Northern Pike',
+                                          'yellow_perch' = 'Yellow Perch',
+                                          'largemouth_bass' = 'Largemouth Bass',
+                                          'walleye' = 'Walleye'))) +
+  ggtitle("Spatial Random Effect") +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'))
 

@@ -25,8 +25,9 @@ create_pars <- function(fish_dat, mean_covs, mean_covs_log, mean_covs_logit, cat
       select(all_of(mean_covs)) %>% 
       mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
       mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-      mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-      mutate(Int = 1)
+      mutate_at(vars(all_of(mean_covs_log)), ~ log(.))
+    # %>% 
+    #   mutate(Int = 1)
     
     Z = fish_dat %>% 
       filter(COMMON_NAME == levs[k]) %>%
