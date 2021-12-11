@@ -15,28 +15,29 @@ fish_dat = fish_dat %>%
 
 # 308 lakes
 # only lakes observed 4 or more times
-fish_dat = fish_dat %>%
-  group_by(DOW) %>%
-  filter(n() >= 6*12) %>%
-  ungroup() %>%
-  mutate_at(vars(DOW), ~droplevels(.))
+# fish_dat = fish_dat %>%
+#   group_by(DOW) %>%
+#   filter(n() >= 6*12) %>%
+#   ungroup() %>%
+#   mutate_at(vars(DOW), ~droplevels(.))
+# 
+# length(table(fish_dat$DOW))
 
-length(table(fish_dat$DOW))
 
+# mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15,17)]
+# temporal_covs = colnames(fish_dat)[c(23, 24)]
+# mean_covs_log = colnames(fish_dat)[c(7, 9)]
+# mean_covs_logit = colnames(fish_dat)[c(13:15,17)]
+# catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
+# gear_types = colnames(fish_dat)[c(21, 22)]
 
-mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15,17)]
+mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15)]
 temporal_covs = colnames(fish_dat)[c(23, 24)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]
-mean_covs_logit = colnames(fish_dat)[c(13:15,17)]
+mean_covs_logit = colnames(fish_dat)[c(13:15)]
 catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
 gear_types = colnames(fish_dat)[c(21, 22)]
 
-# mean_covs = colnames(fish_dat)[c(7, 9, 23, 13:15,17, 25)]
-# temporal_covs = colnames(fish_dat)[c(23, 25)]
-# mean_covs_log = colnames(fish_dat)[c(7, 9)]
-# mean_covs_logit = colnames(fish_dat)[c(13:15,17)]
-# catch_covs = colnames(fish_dat)[c(24, 25:29)] # temp doy interaction
-# gear_types = colnames(fish_dat)[c(21, 22)]
 
 
 # set up stan parameters --------------------------------------------------
@@ -111,6 +112,8 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
     arrange(DOW, SURVEYDATE, COMMON_NAME, GN) %>% 
     filter(COMMON_NAME == levs[1]) %>%
     select(all_of(catch_covs), GN) %>% 
+    mutate(TN = 1) %>% 
+    relocate(TN) %>% 
     mutate_at(vars(all_of(catch_covs)), .funs = list(GN = ~.*GN))
   
   pars$X = as.matrix(X)
@@ -159,20 +162,50 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs)
 
-out = stan(file = 'stan/spatial_jsdm_poisson_cholesky.stan', data = dat, iter = 1000, warmup = 500, chains = 1, cores = 1) # spatial cholesky
-# saveRDS(out, '/Users/joshuanorth/Desktop/stan_spatial_new.rds')
+out = stan(file = 'stan/spatial_jsdm_poisson_cholesky.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1) # spatial cholesky
 
+# saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect_int.rds')
+saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
+
+# out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
 
 chains = extract(out, permuted = T)
 names(chains)
 lapply(chains, dim)
 
-b_stan = t(apply(chains$beta, c(2,3), mean))
-colnames(b_stan) = colnames(head(dat$X))
-rownames(b_stan) = dat$fish_names
+b_names = colnames(dat$X)
+phi_names = colnames(dat$Z)
+
+b_hat = t(apply(chains$beta, c(2,3), mean))
+phi_hat = t(apply(chains$phi, c(2,3), mean))
+fnames = dat$fish_names %>% str_replace(., ' ', '_')
+
+round(b_hat, 3) %>%
+  as_tibble(.name_repair = ~b_names) %>%
+  mutate(Species = dat$fish_names) %>%
+  relocate(Species)
+
+round(phi_hat, 3) %>%
+  as_tibble(.name_repair = ~phi_names) %>%
+  mutate(Species = dat$fish_names) %>%
+  relocate(Species)
+
+b = t(apply(chains$beta, c(2,3), mean))
+b_lower = t(apply(chains$beta, c(2,3), quantile, probs = 0.025))
+b_upper = t(apply(chains$beta, c(2,3), quantile, probs = 0.975))
+colnames(b) = colnames(b_lower) = colnames(b_upper) = colnames(head(dat$X))
+rownames(b) = rownames(b_lower) = rownames(b_upper) = dat$fish_names
 int = apply(chains$beta_0, 2, mean)
-b_stan = cbind(b_stan, int)
-b_stan
+int_lower = apply(chains$beta_0, 2, quantile, probs = 0.025)
+int_upper = apply(chains$beta_0, 2, quantile, probs = 0.975)
+b = cbind(b, int)
+b_lower = cbind(b_lower, int_lower)
+b_upper = cbind(b_upper, int_upper)
+b
+b_lower
+b_upper
+
+sign(b_lower) == sign(b_upper)
 
 # saveRDS(out, '/Users/joshuanorth/Desktop/stan_spatial.rds')
 
@@ -187,7 +220,7 @@ for(i in 1:8){
 }
 
 par(mfrow = c(3,4))
-for(i in 1:11){
+for(i in 1:12){
   plot(chains$phi[,i,5], type = 'l', main = i)
 }
 
@@ -252,9 +285,16 @@ lake_array = tibble(id = dat$lake_index)
 omega_hat = as.matrix(lake_array %>% right_join(ind_array, by = 'id') %>% select(-id))
 
 
+# lam_hat = list()
+# for(k in 1:K){
+#   lam_hat[[k]] = exp(beta_0[k] + dat$X %*% b_hat[k,] + omega_hat[,k] + dat$Z %*% phi_hat[k,])
+# }
+
+
+b0 = apply(beta_0, 2, mean)
 lam_hat = list()
 for(k in 1:K){
-  lam_hat[[k]] = exp(dat$X %*% b_hat[k,] + omega_hat[,k] + dat$Z %*% phi_hat[k,])
+  lam_hat[[k]] = exp(b0[k] + dat$X %*% b_hat[k,] + omega_hat[,k] + dat$Z %*% phi_hat[k,])
 }
 
 
@@ -313,6 +353,13 @@ rel_abun %>%
   dplyr::select(-c(MAX_DEPTH_FEET:DOY_cos_semi_temp)) %>% 
   group_by(COMMON_NAME) %>% 
   filter(Abundance == max(Abundance))
+
+
+
+rel_abun %>% 
+  ggplot(., aes(x = CPUE, y = Abundance)) +
+  geom_point() +
+  facet_wrap(~COMMON_NAME, scales = 'free')
 
 
 # spatial random effect ---------------------------------------------------

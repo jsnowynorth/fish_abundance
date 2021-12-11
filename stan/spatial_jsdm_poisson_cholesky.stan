@@ -78,7 +78,7 @@ data {
   
   // data
   int<lower=0> Y[N, K]; // total caught
-  int y_vec[N*K]; // vector of Y
+  int<lower=0> y_vec[N*K]; // vector of Y
   matrix[N, K] effort; // effort
   matrix[N, p_beta] X; // design matrix abundance
   matrix[N, p_phi] Z; // design matrix catchability
@@ -111,10 +111,10 @@ parameters {
 
 transformed parameters{
   
-  matrix[n_lakes, K] omega; // species random effect
+  matrix[n_lakes, K] omega_star; // species random effect
   
   // omega = to_matrix(kronecker_prod(cholesky_decompose(quad_form_diag(Sigma_species, tau)), Sigma_spatial_chol) * z, n_lakes, K);
-  omega = z * quad_form_diag(Sigma_species, tau);
+  omega_star = z * quad_form_diag(Sigma_species, tau);
   
 }
 
@@ -127,31 +127,32 @@ model {
   matrix[N, K] gamma; // abundance
   matrix[N, K] lambda; // mean intensity function
   matrix[N, K] OMEGA; // lake-wise random effect
-  vector[n_lakes*K] zeros = rep_vector(0, n_lakes*K);
+  // vector[n_lakes*K] zeros = rep_vector(0, n_lakes*K);
   vector[N*K] lambda_vec; // lambda vector
+  matrix[n_lakes, K] omega; // species random effect
 
   // define intensity variables
   B0 = rep_matrix(beta_0, N)';
   
+  // omega = omega_star - mean(omega_star) - variance(omega_star)/2;
+  omega = omega_star - mean(omega_star);
   OMEGA = each_lake * omega;
+
+  theta_star = Z * phi;
+  theta = theta_star - mean(theta_star) - variance(theta_star)/2;
+  // theta = log(exp(theta_star) - mean(exp(theta_star)) + 1);
   
   gamma = B0 + X * beta + OMEGA;
-  
-  theta_star = Z * phi;
-  theta = theta_star - mean(theta_star);
-  
   lambda = log(effort) + gamma + theta;
-  
   lambda_vec = to_vector(lambda);
   
   // priors - https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
-  beta_0 ~ normal(0, 5); // beto 0 prior
-  to_vector(beta) ~ normal(0, 5); // beta prior
-  to_vector(phi) ~ normal(0, 5); // phi prior
+  beta_0 ~ normal(0, 10); // beto 0 prior
+  to_vector(beta) ~ std_normal(); // beta prior
+  to_vector(phi) ~ std_normal(); // phi prior
   tau ~ cauchy(0, 2.5); // scale prior
   Sigma_species ~ lkj_corr(1); // Sigma_species prior, parameter determines strength of correlation, https://distribution-explorer.github.io/multivariate_continuous/lkj.html
   to_vector(z) ~ std_normal(); // omega prior
-  
   
   y_vec ~ poisson_log(lambda_vec);
   
