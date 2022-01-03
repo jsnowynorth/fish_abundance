@@ -364,8 +364,8 @@ dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_l
 # out = read_rds('/Users/joshuanorth/Desktop/stan_results/stan_lake_random_effect.rds')
 # out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect_TN_int.rds')
 # out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect_int.rds')
-out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
-out_no_catch = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect_no_catch.rds')
+out = read_rds('/Users/joshuanorth/Desktop/stan_results/stan_lake_random_effect.rds')
+out_no_catch = read_rds('/Users/joshuanorth/Desktop/stan_results/stan_lake_random_effect_no_catch.rds')
 
 chains = extract(out)
 chains_no_catch = extract(out_no_catch)
@@ -395,23 +395,33 @@ tau = chains$tau
 b_names = colnames(dat$X)
 phi_names = colnames(dat$Z)
 
-fnames = dat$fish_names %>% str_replace(., ' ', '_')
-fnames = fnames %>% 
-  str_replace_all(., "_", " ") %>% 
-  str_to_title()
+fnames = dat$fish_names
+# fnames = dat$fish_names %>% str_replace(., ' ', '_')
+# fnames = fnames %>% 
+#   str_replace_all(., "_", " ") %>% 
+#   str_to_title()
 
 b_names = b_names %>% 
   str_replace_all("_", " ") %>% 
   str_to_title() %>% 
-  str_replace_all('Dd5', 'DD5') %>% 
+  str_replace_all('Dd5', 'GDD') %>% 
   str_replace_all('Gis', 'GIS')
+b_names[1] = "Max Depth"
+b_names[2] = "Lake Area"
 
 b_names = c("Int", b_names)
 
 phi_names = phi_names %>% 
   str_replace_all("_", " ") %>% 
   str_to_title() %>% 
-  str_replace_all('Gn', 'GN')
+  str_replace_all('Gn', 'GN') %>% 
+  str_replace_all("Doy ", "") %>% 
+  str_replace_all("Semi", "") %>% 
+  str_replace_all("0", "") %>% 
+  str_replace_all("Sin ", "Sin") %>% 
+  str_replace_all("Cos ", "Cos") %>% 
+  str_replace_all("Temp  GN", "Temp GN")
+phi_names[2] = "Temp"
 
 
 b0_hat = apply(beta_0, 2, mean)
@@ -718,6 +728,156 @@ t(b_no_upper)
 t(b_lower)
 t(b_upper)
 
+
+# parameter estimate figures ----------------------------------------------
+
+b_mean = t(apply(beta, c(2,3), mean))
+b_lower = t(apply(beta, c(2,3), quantile, probs = 0.025))
+b_upper = t(apply(beta, c(2,3), quantile, probs = 0.975))
+
+b0_mean = apply(beta_0, c(2), mean)
+b0_lower = apply(beta_0, c(2), quantile, probs = 0.025)
+b0_upper = apply(beta_0, c(2), quantile, probs = 0.975)
+
+b_mean = cbind(b0_mean, b_mean)
+b_lower = cbind(b0_lower, b_lower)
+b_upper = cbind(b0_upper, b_upper)
+
+colnames(b_mean) = b_names
+colnames(b_lower) = b_names
+colnames(b_upper) = b_names
+# rownames(b_mean) = fnames
+
+b_mean = as_tibble(b_mean) %>% 
+  mutate(species = fnames) %>% 
+  pivot_longer(-species, names_to = "Variable", values_to = "Mean")
+
+b_lower = as_tibble(b_lower) %>% 
+  mutate(species = fnames) %>% 
+  pivot_longer(-species, names_to = "Variable", values_to = "Lower")
+
+b_upper = as_tibble(b_upper) %>% 
+  mutate(species = fnames) %>% 
+  pivot_longer(-species, names_to = "Variable", values_to = "Upper")
+
+b_plt = b_mean %>% 
+  left_join(b_lower) %>% 
+  left_join(b_upper) %>% 
+  mutate(sig = as.factor(if_else(sign(Lower) == sign(Upper), 1, 0))) %>% 
+  mutate(Variable = factor(Variable, 
+                           levels = c('Int', 'Max Depth', 'Lake Area', 'Ag', 'Urban', 'Wetlands', 'GDD', 'Secchi'))) %>% 
+  mutate(species = factor(species,
+                          levels = c('black crappie', 'bluegill', 'largemouth bass', 'northern pike', 'walleye', 'yellow perch')))
+
+
+ggplot(b_plt, aes(y = reorder(species, desc(species)))) +
+  geom_point(aes(x = Mean, shape = sig, color = sig), size = 1.5) +
+  geom_errorbar(aes(xmin = Lower, xmax = Upper, color = sig), width = 0.3) +
+  geom_vline(xintercept = 0, alpha = 0.5) +
+  facet_wrap(~Variable, scales = 'free_x', ncol = 4) +
+  scale_shape_manual(values = c(1, 19)) +
+  scale_color_manual(values = c('darkgray', 'blue')) +
+  xlab('Parameter Estimate') +
+  ylab('') +
+  guides(shape = 'none', color = 'none') 
+
+# ggsave('results/spatial_results/parameter_estimate_plot.png', width = 12, height = 6)
+
+
+chains_no_catch = extract(out_no_catch)
+beta_0_no = chains_no_catch$beta_0
+beta_no = chains_no_catch$beta
+
+b_mean = t(apply(beta_no, c(2,3), mean))
+b_lower = t(apply(beta_no, c(2,3), quantile, probs = 0.025))
+b_upper = t(apply(beta_no, c(2,3), quantile, probs = 0.975))
+
+b0_mean = apply(beta_0_no, c(2), mean)
+b0_lower = apply(beta_0_no, c(2), quantile, probs = 0.025)
+b0_upper = apply(beta_0_no, c(2), quantile, probs = 0.975)
+
+b_mean = cbind(b0_mean, b_mean)
+b_lower = cbind(b0_lower, b_lower)
+b_upper = cbind(b0_upper, b_upper)
+
+colnames(b_mean) = b_names
+colnames(b_lower) = b_names
+colnames(b_upper) = b_names
+# rownames(b_mean) = fnames
+
+b_mean_no = as_tibble(b_mean) %>% 
+  mutate(species = fnames) %>% 
+  pivot_longer(-species, names_to = "Variable", values_to = "Mean")
+
+b_lower_no = as_tibble(b_lower) %>% 
+  mutate(species = fnames) %>% 
+  pivot_longer(-species, names_to = "Variable", values_to = "Lower")
+
+b_upper_no = as_tibble(b_upper) %>% 
+  mutate(species = fnames) %>% 
+  pivot_longer(-species, names_to = "Variable", values_to = "Upper")
+
+colnames(b_no_sig) = b_names
+b_no_sig = as_tibble(b_no_sig) %>% 
+  mutate(species = fnames) %>% 
+  pivot_longer(-species, names_to = "Variable", values_to = "sig")
+  
+
+b_plt_no = b_mean_no %>% 
+  left_join(b_lower_no) %>% 
+  left_join(b_upper_no) %>% 
+  left_join(b_no_sig) %>% 
+  # mutate(sig = as.factor(if_else(sign(Lower) == sign(Upper), 1, 0))) %>% 
+  mutate(Variable = factor(Variable, 
+                           levels = c('Int', 'Max Depth', 'Lake Area', 'Ag', 'Urban', 'Wetlands', 'GDD', 'Secchi'))) %>% 
+  mutate(species = factor(species,
+                          levels = c('black crappie', 'bluegill', 'largemouth bass', 'northern pike', 'walleye', 'yellow perch'))) %>% 
+  mutate(sig = factor(sig))
+
+
+for(i in 1:nrow(b_plt_no)){
+  
+  if(between(b_plt_no$Lower[i], b_plt$Lower[i], b_plt$Upper[i])){
+    b_plt_no$sig[i] = 0
+  }else if(between(b_plt_no$Upper[i], b_plt$Lower[i], b_plt$Upper[i])){
+    b_plt_no$sig[i] = 0
+  }else if(between(b_plt$Lower[i], b_plt_no$Lower[i], b_plt_no$Upper[i])){
+    b_plt_no$sig[i] = 0
+  }else if(between(b_plt$Upper[i], b_plt_no$Lower[i], b_plt_no$Upper[i])){
+    b_plt_no$sig[i] = 0
+  }else{
+    b_plt_no$sig[i] = 1
+  }
+  
+}
+
+
+betas_plt = rbind(b_plt %>% mutate(model = 'Scaled Effort'), b_plt_no %>% mutate(model = 'Constant Effort'))
+
+betas_plt %>% 
+  filter(species == 'walleye')
+
+ggplot(betas_plt, aes(y = reorder(species, desc(species)))) +
+  geom_blank(aes(x = -Mean)) +
+  geom_point(aes(x = Mean, color = model, shape = sig), size = 1.5) +
+  geom_errorbar(aes(xmin = Lower, xmax = Upper, color = model), width = 0.2) +
+  geom_vline(xintercept = 0, alpha = 0.5) +
+  facet_wrap(~Variable, scales = 'free_x', ncol = 4) +
+  scale_shape_manual(values = c(1, 19)) +
+  scale_color_manual(values = c('red', 'blue')) +
+  xlab('Parameter Estimate') +
+  ylab('') +
+  guides(shape = 'none') +
+  theme(legend.position="bottom",
+        legend.title=element_blank())
+
+
+# ggsave('results/spatial_results/parameter_estimate_plot.png', width = 16, height = 8)
+
+
+
+
+
 # covariance figure -------------------------------------------------------
 
 cmat = apply(sigma_species, c(2,3), mean)
@@ -836,13 +996,13 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~fish, 
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
-  ggtitle("Lake Random Effect") +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
+  ggtitle("") +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -885,7 +1045,7 @@ ggplot() +
                         palette = 'YlOrRd', direction = 1, name = 'Day of Year') +
   xlab("Longitude") +
   ylab("Latitude") +
-  ggtitle("Median Sample Date") +
+  ggtitle("") +
   theme(axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
         title = element_text(size = 16, face = 'bold'),
@@ -904,7 +1064,7 @@ ggplot() +
                         palette = 'YlOrRd', direction = 1, name = 'Days') +
   xlab("Longitude") +
   ylab("Latitude") +
-  ggtitle("Standard Deviation of the Sample Date") +
+  ggtitle("") +
   theme(axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
         title = element_text(size = 16, face = 'bold'),
@@ -927,13 +1087,13 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish, 
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
-  ggtitle("Relative Abundance (gamma)") +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
+  ggtitle("") +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -1087,13 +1247,13 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
-  ggtitle("Quantile Comparison for Scaled and Unscaled Effort") +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
+  ggtitle("") +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -1165,13 +1325,13 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
-  ggtitle("Species Composition Percentage Difference: Scaled - Unscaled") +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
+  ggtitle("") +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -1195,15 +1355,15 @@ ggplot(fish_plot %>%
   stat_cor(aes(label = ..r.label..), label.x.npc = 'center', label.y.npc = 'top', size = 10) +
   facet_wrap(~ fish, 
              scales = 'free',
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
   ylab('Relative Abundance (gamma)') +
   xlab('Catch Per Unit Effort') +
-  ggtitle('Catch Per Unit Effort vs. Relative Abundance (gamma) for GN') + 
+  ggtitle('') + 
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -1224,15 +1384,15 @@ ggplot(fish_plot %>%
   stat_cor(aes(label = ..r.label..), label.x.npc = 'center', label.y.npc = 'top', size = 10) +
   facet_wrap(~ fish, 
              scales = 'free',
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
   ylab('Relative Abundance (gamma)') +
   xlab('Catch Per Unit Effort') +
-  ggtitle('Catch Per Unit Effort vs. Relative Abundance (gamma) for TN') + 
+  ggtitle('') + 
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -1251,15 +1411,15 @@ ggplot(fish_plot %>% filter(GN == 1), aes(x = CPUE, y = gamma)) +
   stat_cor(aes(label = ..r.label..), label.x.npc = 'center', label.y.npc = 'top', size = 10) +
   facet_wrap(~ fish, 
              scales = 'free',
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
   ylab('Relative Abundance (gamma)') +
   xlab('Catch Per Unit Effort') +
-  ggtitle('Catch Per Unit Effort vs. Relative Abundance (gamma) for GN') + 
+  ggtitle('') + 
   theme(legend.title=element_blank(),
         title = element_text(size = 16, face = 'bold'),
         strip.text = element_text(size = 16),
@@ -1276,15 +1436,15 @@ ggplot(fish_plot %>% filter(TN == 1), aes(x = CPUE, y = gamma)) +
   stat_cor(aes(label = ..r.label..), label.x.npc = 'center', label.y.npc = 'top', size = 10) +
   facet_wrap(~ fish, 
              scales = 'free',
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
   ylab('Relative Abundance (gamma)') +
   xlab('Catch Per Unit Effort') +
-  ggtitle('Catch Per Unit Effort vs. Relative Abundance (gamma) for TN') + 
+  ggtitle('') + 
   theme(legend.title=element_blank(),
         title = element_text(size = 16, face = 'bold'),
         strip.text = element_text(size = 16),
@@ -1310,12 +1470,12 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish, 
-             labeller = labeller(fish = c('black_crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'northern_pike' = 'Northern Pike',
-                                          'yellow_perch' = 'Yellow Perch',
-                                          'largemouth_bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
+             labeller = labeller(fish = c('black_crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'northern_pike' = 'northern pike',
+                                          'yellow_perch' = 'yellow perch',
+                                          'largemouth_bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
   ggtitle("Log theta*gamma for GN") +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
@@ -1473,7 +1633,7 @@ day_comp = day_covs_TN %>%
   pivot_longer(-c(DOW, lat, lon), names_to = c('Gear', 'fish'), names_sep = '_', values_to = 'value')
 
 
-
+# predicted catch on 2016-08-01 for TN
 ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
@@ -1484,13 +1644,13 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
-             labeller = labeller(fish = c('crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'pike' = 'Northern Pike',
-                                          'perch' = 'Yellow Perch',
-                                          'bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
-  ggtitle(paste0('Predicted Catch for 1 Unit Effort on ', day_choice, ' - TN')) +
+             labeller = labeller(fish = c('crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'pike' = 'northern pike',
+                                          'perch' = 'yellow perch',
+                                          'bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
+  ggtitle('') +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -1502,6 +1662,7 @@ ggplot() +
 # ggsave('results/spatial_results/gear_TN_equivalence.png', width = 12, height = 8)
 
 
+# predicted catch on 2016-08-01 for GN
 ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
@@ -1512,13 +1673,13 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
-             labeller = labeller(fish = c('crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'pike' = 'Northern Pike',
-                                          'perch' = 'Yellow Perch',
-                                          'bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
-  ggtitle(paste0('Predicted Catch for 1 Unit Effort on ', day_choice, ' - GN')) +
+             labeller = labeller(fish = c('crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'pike' = 'northern pike',
+                                          'perch' = 'yellow perch',
+                                          'bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
+  ggtitle('') +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -1778,12 +1939,12 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
-             labeller = labeller(fish = c('crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'pike' = 'Northern Pike',
-                                          'perch' = 'Yellow Perch',
-                                          'bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
+             labeller = labeller(fish = c('crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'pike' = 'northern pike',
+                                          'perch' = 'yellow perch',
+                                          'bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
   ggtitle(paste0('Difference in Predicted Catch for 1 Unit Effort on - TN')) +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
@@ -1793,7 +1954,7 @@ ggplot() +
         legend.text = element_text(size = 14),
         legend.key.height = unit(1, 'cm'))
 
-# ggsave('results/spatial_results/gear_TN_difference.png', width = 12, height = 12)
+ggsave('results/spatial_results/gear_TN_difference.png', width = 12, height = 12)
 
 
 ggplot() +
@@ -1806,12 +1967,12 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
-             labeller = labeller(fish = c('crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'pike' = 'Northern Pike',
-                                          'perch' = 'Yellow Perch',
-                                          'bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
+             labeller = labeller(fish = c('crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'pike' = 'northern pike',
+                                          'perch' = 'yellow perch',
+                                          'bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
   ggtitle(paste0('Difference in Predicted Catch for 1 Unit Effort on - GN')) +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
@@ -2180,6 +2341,7 @@ day_comp = day_comp %>%
 
 quantile(day_comp$diff, probs = seq(0, 1, 0.01))
 
+# Standardized Difference in Predicted Catch for 1 Unit Effort - TN
 ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
@@ -2190,13 +2352,13 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
-             labeller = labeller(fish = c('crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'pike' = 'Northern Pike',
-                                          'perch' = 'Yellow Perch',
-                                          'bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
-  ggtitle(paste0('Standardized Difference in Predicted Catch for 1 Unit Effort - TN')) +
+             labeller = labeller(fish = c('crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'pike' = 'northern pike',
+                                          'perch' = 'yellow perch',
+                                          'bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
+  ggtitle('') +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -2208,6 +2370,7 @@ ggplot() +
 # ggsave('results/spatial_results/gear_TN_difference.png', width = 12, height = 8)
 
 
+# Standardized Difference in Predicted Catch for 1 Unit Effort - GN
 ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
@@ -2218,13 +2381,13 @@ ggplot() +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
-             labeller = labeller(fish = c('crappie' = 'Black Crappie',
-                                          'bluegill' = 'Bluegill',
-                                          'pike' = 'Northern Pike',
-                                          'perch' = 'Yellow Perch',
-                                          'bass' = 'Largemouth Bass',
-                                          'walleye' = 'Walleye'))) +
-  ggtitle(paste0('Standardized Difference in Predicted Catch for 1 Unit Effort - GN')) +
+             labeller = labeller(fish = c('crappie' = 'black crappie',
+                                          'bluegill' = 'bluegill',
+                                          'pike' = 'northern pike',
+                                          'perch' = 'yellow perch',
+                                          'bass' = 'largemouth bass',
+                                          'walleye' = 'walleye'))) +
+  ggtitle('') +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
         axis.title = element_text(size = 16, face = 'bold'),
@@ -2429,12 +2592,13 @@ catch_plot = post_curve %>%
   mutate(Fish = rep(fnames, n()/6))
 
 
+# Gear Type Scaling by Species
 ggplot(catch_plot, aes(x = SURVEYDATE, y = exp(value))) +
   geom_line(aes(color = Fish), size = 1.2) +
   facet_wrap(~ Gear, scales = 'free_y', ncol = 1) +
   scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd('2016-06-02'), ymd('2016-09-25'))) +
   scale_linetype_manual(values=c("solid", 'longdash', 'dotted')) +
-  ggtitle(paste0('Gear Type Scaling by Species - ', yr)) +
+  ggtitle('') +
   xlab('') +
   ylab('Catchability') +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
