@@ -21,10 +21,20 @@ fish_dat = fish_dat %>%
 # gear_types = colnames(fish_dat)[c(21, 22)]
 
 
+# with AG
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15)]
 temporal_covs = colnames(fish_dat)[c(23, 24)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]
 mean_covs_logit = colnames(fish_dat)[c(13:15)]
+catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
+gear_types = colnames(fish_dat)[c(21, 22)]
+
+
+# without AG
+mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 14:15)]
+temporal_covs = colnames(fish_dat)[c(23, 24)]
+mean_covs_log = colnames(fish_dat)[c(7, 9)]
+mean_covs_logit = colnames(fish_dat)[c(14:15)]
 catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
 gear_types = colnames(fish_dat)[c(21, 22)]
 
@@ -151,9 +161,12 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs)
 
 out = stan(file = 'stan/spatial_jdsm_poisson_no_catch.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1) # spatial cholesky
-saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect_no_catch.rds')
+
+saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake_random_effect_no_catch.rds")
+# saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect_no_catch.rds')
 
 # out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect_no_catch.rds')
+
 
 chains = extract(out, permuted = T)
 names(chains)

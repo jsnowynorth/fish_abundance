@@ -226,17 +226,20 @@ fish_dat = fish_dat %>%
 fish_dat = fish_dat %>% 
   arrange(DOW, SURVEYDATE, COMMON_NAME, GN)
 
-# mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15,17)]
-# temporal_covs = colnames(fish_dat)[c(23, 24)]
-# mean_covs_log = colnames(fish_dat)[c(7, 9)]
-# mean_covs_logit = colnames(fish_dat)[c(13:15,17)]
-# catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
-# gear_types = colnames(fish_dat)[c(21, 22)]
-
+# with AG
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15)]
 temporal_covs = colnames(fish_dat)[c(23, 24)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]
 mean_covs_logit = colnames(fish_dat)[c(13:15)]
+catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
+gear_types = colnames(fish_dat)[c(21, 22)]
+
+
+# without AG
+mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 14:15)]
+temporal_covs = colnames(fish_dat)[c(23, 24)]
+mean_covs_log = colnames(fish_dat)[c(7, 9)]
+mean_covs_logit = colnames(fish_dat)[c(14:15)]
 catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
 gear_types = colnames(fish_dat)[c(21, 22)]
 
@@ -361,11 +364,11 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs)
 
-# out = read_rds('/Users/joshuanorth/Desktop/stan_results/stan_lake_random_effect.rds')
-# out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect_TN_int.rds')
-# out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect_int.rds')
-out = read_rds('/Users/joshuanorth/Desktop/stan_results/stan_lake_random_effect.rds')
-out_no_catch = read_rds('/Users/joshuanorth/Desktop/stan_results/stan_lake_random_effect_no_catch.rds')
+# out = read_rds('data/stan_output/stan_lake_random_effect.rds')
+# out_no_catch = read_rds('data/stan_output/stan_lake_random_effect_no_catch.rds')
+out = read_rds('C:/Users/jsnow/Desktop/stan_lake_random_effect.rds')
+out_no_catch = read_rds('C:/Users/jsnow/Desktop/stan_lake_random_effect_no_catch.rds')
+
 
 chains = extract(out)
 chains_no_catch = extract(out_no_catch)
@@ -852,29 +855,100 @@ for(i in 1:nrow(b_plt_no)){
 }
 
 
-betas_plt = rbind(b_plt %>% mutate(model = 'Scaled Effort'), b_plt_no %>% mutate(model = 'Constant Effort'))
+betas_plt = rbind(b_plt %>% mutate(model = 'Variable Catchability'), b_plt_no %>% mutate(model = 'Traditional'))
 
-betas_plt %>% 
-  filter(species == 'walleye')
 
-ggplot(betas_plt, aes(y = reorder(species, desc(species)))) +
-  geom_blank(aes(x = -Mean)) +
-  geom_point(aes(x = Mean, color = model, shape = sig), size = 1.5) +
+
+# https://stackoverflow.com/questions/54438495/shift-legend-into-empty-facets-of-a-faceted-plot-in-ggplot2
+
+library(gtable)
+library(cowplot)
+library(grid)
+library(gridExtra)
+library(lemon)
+
+shift_legend <- function(p){
+  
+  # check if p is a valid object
+  if(!"gtable" %in% class(p)){
+    if("ggplot" %in% class(p)){
+      gp <- ggplotGrob(p) # convert to grob
+    } else {
+      message("This is neither a ggplot object nor a grob generated from ggplotGrob. Returning original plot.")
+      return(p)
+    }
+  } else {
+    gp <- p
+  }
+  
+  # check for unfilled facet panels
+  facet.panels <- grep("^panel", gp[["layout"]][["name"]])
+  empty.facet.panels <- sapply(facet.panels, function(i) "zeroGrob" %in% class(gp[["grobs"]][[i]]))
+  empty.facet.panels <- facet.panels[empty.facet.panels]
+  if(length(empty.facet.panels) == 0){
+    message("There are no unfilled facet panels to shift legend into. Returning original plot.")
+    return(p)
+  }
+  
+  # establish extent of unfilled facet panels (including any axis cells in between)
+  empty.facet.panels <- gp[["layout"]][empty.facet.panels, ]
+  empty.facet.panels <- list(min(empty.facet.panels[["t"]]), min(empty.facet.panels[["l"]]),
+                             max(empty.facet.panels[["b"]]), max(empty.facet.panels[["r"]]))
+  names(empty.facet.panels) <- c("t", "l", "b", "r")
+  
+  # extract legend & copy over to location of unfilled facet panels
+  guide.grob <- which(gp[["layout"]][["name"]] == "guide-box")
+  if(length(guide.grob) == 0){
+    message("There is no legend present. Returning original plot.")
+    return(p)
+  }
+  gp <- gtable_add_grob(x = gp,
+                        grobs = gp[["grobs"]][[guide.grob]],
+                        t = empty.facet.panels[["t"]],
+                        l = empty.facet.panels[["l"]],
+                        b = empty.facet.panels[["b"]],
+                        r = empty.facet.panels[["r"]],
+                        name = "new-guide-box")
+  
+  # squash the original guide box's row / column (whichever applicable)
+  # & empty its cell
+  guide.grob <- gp[["layout"]][guide.grob, ]
+  if(guide.grob[["l"]] == guide.grob[["r"]]){
+    gp <- gtable_squash_cols(gp, cols = guide.grob[["l"]])
+  }
+  if(guide.grob[["t"]] == guide.grob[["b"]]){
+    gp <- gtable_squash_rows(gp, rows = guide.grob[["t"]])
+  }
+  gp <- gtable_remove_grobs(gp, "guide-box")
+  
+  return(gp)
+}
+
+p1 = ggplot(betas_plt, aes(y = reorder(species, desc(species)))) +
+  geom_point(aes(x = Mean, color = model), size = 1.5) +
   geom_errorbar(aes(xmin = Lower, xmax = Upper, color = model), width = 0.2) +
   geom_vline(xintercept = 0, alpha = 0.5) +
-  facet_wrap(~Variable, scales = 'free_x', ncol = 4) +
+  scale_x_symmetric() +
+  facet_wrap(~Variable, scales = 'free_x', ncol = 2) +
   scale_shape_manual(values = c(1, 19)) +
   scale_color_manual(values = c('red', 'blue')) +
   xlab('Parameter Estimate') +
   ylab('') +
   guides(shape = 'none') +
-  theme(legend.position="bottom",
-        legend.title=element_blank())
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.height = unit(1, 'cm'),
+        panel.spacing = unit(1, "lines"),
+        axis.text.y = element_text(angle = 45, vjust = -1, hjust = 1))
+grid.draw(shift_legend(p1))
 
 
-# ggsave('results/spatial_results/parameter_estimate_plot.png', width = 16, height = 8)
-
-
+# width = 1700, height = 750
+# ggsave('results/spatial_results/parameter_estimate_plot.png', p1, width = 16, height = 8)
 
 
 
@@ -961,7 +1035,7 @@ mean_complete <- upper_mean %>%
 ggplot(data = mean_complete) +
   geom_tile(color = "black", aes(Row, Col, fill = Cov1, width=0.95, height=0.95), size = .25) +
   geom_text(aes(Row, Col, label = Cov2), color = "black", size = 8) +
-  scale_fill_gradientn(colors = two.colors(n = 29, start = '#053061', end = '#67001f', middle = '#f7f7f7'), limits = c(-1, 1),
+  scale_fill_gradientn(colors = two.colors(n = 29, start = '#053061', end = '#67001f', middle = '#f7f7f7'), limits = c(-0.5, 0.5),
                        guide = guide_colorbar(title = "",
                                               title.position = "bottom",
                                               barwidth = 25,
@@ -1082,8 +1156,8 @@ ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_point(data = fish_plot_year, 
-             aes(x = lon, y = lat, color = ifelse(gamma > 600, 600, gamma)), size = 1.5) +
-  scale_color_gradient(low = 'green', high = 'purple', trans = pseudo_log_trans(sigma = 0.01), breaks = c(0, 1, 10, 100, 600), limits = c(0, 600)) +
+             aes(x = lon, y = lat, color = ifelse(gamma > 500, 500, gamma)), size = 1.5) +
+  scale_color_gradient(low = 'green', high = 'purple', trans = pseudo_log_trans(sigma = 0.01), breaks = c(0, 1, 10, 100, 500), limits = c(0, 600)) +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish, 

@@ -31,6 +31,8 @@ fish_dat = fish_dat %>%
 # catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
 # gear_types = colnames(fish_dat)[c(21, 22)]
 
+
+# with AG
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15)]
 temporal_covs = colnames(fish_dat)[c(23, 24)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]
@@ -38,6 +40,14 @@ mean_covs_logit = colnames(fish_dat)[c(13:15)]
 catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
 gear_types = colnames(fish_dat)[c(21, 22)]
 
+
+# without AG
+mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 14:15)]
+temporal_covs = colnames(fish_dat)[c(23, 24)]
+mean_covs_log = colnames(fish_dat)[c(7, 9)]
+mean_covs_logit = colnames(fish_dat)[c(14:15)]
+catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
+gear_types = colnames(fish_dat)[c(21, 22)]
 
 
 # set up stan parameters --------------------------------------------------
@@ -164,8 +174,10 @@ dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_l
 
 out = stan(file = 'stan/spatial_jsdm_poisson_cholesky.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1) # spatial cholesky
 
+saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake_random_effect.rds")
+
 # saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect_int.rds')
-saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
+# saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
 
 # out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
 
@@ -419,4 +431,210 @@ ggplot() +
         strip.text = element_text(size = 16),
         legend.text = element_text(size = 14),
         legend.key.height = unit(1, 'cm'))
+
+
+
+
+
+# look at data summaries --------------------------------------------------
+
+
+select(all_of(mean_covs)) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.))
+
+fish_dat %>% 
+  select(all_of(mean_covs), COMMON_NAME, TOTAL_CATCH) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
+  filter(TOTAL_CATCH != 0) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise_at(vars(all_of(mean_covs)), mean)
+
+
+fish_dat %>% 
+  select(all_of(mean_covs), COMMON_NAME, TOTAL_CATCH) %>% 
+  filter(TOTAL_CATCH != 0) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise_at(vars(all_of(mean_covs)), mean)
+
+
+
+fish_dat %>% 
+  select(DD5, COMMON_NAME, TOTAL_CATCH) %>% 
+  filter(TOTAL_CATCH != 0) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise(mean(DD5))
+
+fish_dat %>% 
+  select(DD5, COMMON_NAME, TOTAL_CATCH) %>% 
+  filter(TOTAL_CATCH != 0) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise(quantile(DD5, probs = c(0.025)))
+
+fish_dat %>% 
+  select(DD5, COMMON_NAME, TOTAL_CATCH) %>% 
+  filter(TOTAL_CATCH != 0) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise(quantile(DD5, probs = c(0.975)))
+
+
+
+fish_dat %>% 
+  select(DD5, COMMON_NAME, TOTAL_CATCH) %>% 
+  filter(TOTAL_CATCH != 0) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise(sd(DD5))
+
+
+
+
+
+
+fish_dat %>% 
+  select(all_of(mean_covs), COMMON_NAME, TOTAL_CATCH) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
+  filter(TOTAL_CATCH != 0) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise(mean = mean(MAX_DEPTH_FEET),
+            sd = sd(MAX_DEPTH_FEET),
+            lower = quantile(MAX_DEPTH_FEET, probs = 0.2), 
+            upper = quantile(MAX_DEPTH_FEET, probs = 0.8),
+            min = min(MAX_DEPTH_FEET),
+            max = max(MAX_DEPTH_FEET))
+
+fish_dat %>% 
+  select(all_of(mean_covs), COMMON_NAME, TOTAL_CATCH) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
+  filter(TOTAL_CATCH != 0) %>% 
+  group_by(COMMON_NAME) %>% 
+  summarise(mean = mean(DD5),
+            sd = sd(DD5),
+            lower = quantile(DD5, probs = 0.2), 
+            upper = quantile(DD5, probs = 0.8),
+            min = min(DD5),
+            max = max(DD5))
+
+fish_dat %>% 
+  select(all_of(mean_covs), COMMON_NAME, TOTAL_CATCH) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
+  summarise(mean = mean(DD5),
+            sd = sd(DD5),
+            lower = quantile(DD5, probs = 0.2), 
+            upper = quantile(DD5, probs = 0.8),
+            min = min(DD5),
+            max = max(DD5))
+
+
+
+out = read_rds('C:/Users/jsnow/Desktop/stan_lake_random_effect.rds')
+chains = extract(out)
+chains_no_catch = extract(out_no_catch)
+names(chains)
+lapply(chains, dim)
+
+beta_0 = apply(chains$beta_0, 2, mean)
+beta = apply(chains$beta, c(2,3), mean)
+
+blue_mean = c(beta_0[2], beta[,2])
+
+
+X = fish_dat %>% 
+  arrange(DOW, SURVEYDATE, COMMON_NAME, GN) %>% 
+  filter(COMMON_NAME == 'bluegill') %>% 
+  select(DOW, year, all_of(mean_covs)) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
+  mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
+  mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
+  filter(DOW == '34007900') %>% 
+  filter(year == 2016) %>% 
+  select(-c(DOW, year)) %>% 
+  as.matrix()
+
+X = c(1, X[1,])
+
+x1 = X # depth 0.656
+x2 = X # depth -0.522
+x3 = X # gdd 1
+x4 = X # gdd -1
+x1[2] = 0.656
+x2[2] = -0.522
+x3[4] = 1
+x4[4] = -1
+
+
+exp(sum(x1 * blue_mean)) # depth 0.656
+exp(sum(x2 * blue_mean)) # depth -0.522
+exp(sum(x3 * blue_mean)) # gdd 1
+exp(sum(x4 * blue_mean)) # gdd -1
+
+exp(sum(x1 * blue_mean))/exp(sum(x2 * blue_mean))
+exp(sum(x3 * blue_mean))/exp(sum(x4 * blue_mean))
+
+exp(sum(x4 * blue_mean))/exp(sum(x3 * blue_mean))
+
+
+
+
+
+
+sort(table(fish_dat$DOW), decreasing = T)
+
+fish_plot = fish_dat %>% 
+  left_join(effort %>% 
+              left_join(static, by = 'DOW') %>% 
+              select(DOW, LAKE_CENTER_LAT_DD5, LAKE_CENTER_LONG_DD5) %>% 
+              mutate(DOW = factor(DOW)) %>% 
+              distinct(DOW, .keep_all = T), by = 'DOW') %>% 
+  rename(lat = LAKE_CENTER_LAT_DD5,
+         lon = LAKE_CENTER_LONG_DD5) 
+
+fish_plot %>% 
+  filter(DOW == '34007900')
+
+
+
+lats = range(fish_plot$lat, na.rm = T)
+lons = range(fish_plot$lon, na.rm = T)
+
+usa = st_as_sf(maps::map("state", fill= TRUE, plot = FALSE))
+
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = fish_plot %>% 
+               filter(DOW == '34007900'), 
+             aes(x = lon, y = lat, color = TOTAL_CATCH), size = 1.5)
+
+
+
+dat$fish_names
+head(dat$X)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
