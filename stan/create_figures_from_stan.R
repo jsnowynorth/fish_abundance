@@ -855,8 +855,11 @@ for(i in 1:nrow(b_plt_no)){
 }
 
 
-betas_plt = rbind(b_plt %>% mutate(model = 'Variable Catchability'), b_plt_no %>% mutate(model = 'Traditional'))
+betas_plt = rbind(b_plt %>% mutate(model = 'Varying Catchability'), b_plt_no %>% mutate(model = 'Constant Catchability'))
 
+betas_plt = betas_plt %>% 
+  mutate(Variable = str_to_lower(Variable)) %>% 
+  mutate(Variable = factor(Variable, levels = c('int', 'max depth', 'lake area', 'ag', 'urban', 'wetlands', 'gdd', 'secchi')))
 
 
 # https://stackoverflow.com/questions/54438495/shift-legend-into-empty-facets-of-a-faceted-plot-in-ggplot2
@@ -1035,7 +1038,7 @@ mean_complete <- upper_mean %>%
 ggplot(data = mean_complete) +
   geom_tile(color = "black", aes(Row, Col, fill = Cov1, width=0.95, height=0.95), size = .25) +
   geom_text(aes(Row, Col, label = Cov2), color = "black", size = 8) +
-  scale_fill_gradientn(colors = two.colors(n = 29, start = '#053061', end = '#67001f', middle = '#f7f7f7'), limits = c(-0.5, 0.5),
+  scale_fill_gradientn(colors = two.colors(n = 29, start = 'blue', end = 'red', middle = '#f7f7f7'), limits = c(-0.5, 0.5),
                        guide = guide_colorbar(title = "",
                                               title.position = "bottom",
                                               barwidth = 25,
@@ -1127,6 +1130,27 @@ ggplot() +
         legend.text = element_text(size = 14),
         legend.key.height = unit(1, 'cm'))
 
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = date_df_median, 
+             aes(x = lon, y = lat, color = doymed), size = 1.5) +
+  scale_color_fermenter(breaks = round(unname(quantile(date_df_median$doymed, probs = seq(0.05, 0.95, 0.15))),2), 
+                        palette = 'YlOrRd', direction = 1, name = 'Day of Year') +
+  xlab("") +
+  ylab("") +
+  ggtitle("") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.width = unit(2, 'cm'),
+        legend.position="bottom",
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank())
+
 # ggsave('results/spatial_results/median_sample_date_spat.png', width = 12, height = 8)
 
 ggplot() +
@@ -1146,7 +1170,76 @@ ggplot() +
         legend.text = element_text(size = 14),
         legend.key.height = unit(1, 'cm'))
 
+ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = date_df_sd, 
+             aes(x = lon, y = lat, color = doysd), size = 1.5) +
+  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doysd, probs = seq(0.05, 0.95, 0.15))),2), 
+                        palette = 'YlOrRd', direction = 1, name = 'Days') +
+  xlab("") +
+  ylab("") +
+  ggtitle("") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.width = unit(2, 'cm'),
+        legend.position="bottom",
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank())
+
 # ggsave('results/spatial_results/sd_sample_date_spat.png', width = 12, height = 8)
+
+
+p1 = ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = date_df_median, 
+             aes(x = lon, y = lat, color = doymed), size = 1.5) +
+  scale_color_fermenter(breaks = round(unname(quantile(date_df_median$doymed, probs = seq(0.05, 0.95, 0.15))),2), 
+                        palette = 'YlOrRd', direction = 1, name = 'Day of Year') +
+  xlab("") +
+  ylab("") +
+  ggtitle("") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.width = unit(2, 'cm'),
+        legend.position="bottom",
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0, 0, 0, 0), "cm"))
+
+p2 = ggplot() +
+  geom_sf(data = usa) +
+  coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
+  geom_point(data = date_df_sd, 
+             aes(x = lon, y = lat, color = doysd), size = 1.5) +
+  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doysd, probs = seq(0.05, 0.95, 0.15))),2), 
+                        palette = 'YlOrRd', direction = 1, name = 'Days') +
+  xlab("") +
+  ylab("") +
+  ggtitle("") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.key.width = unit(2, 'cm'),
+        legend.position="bottom",
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(0, 0, 0, 0), "cm"))
+
+cowplot::plot_grid(p1, p2)
+# ggsave('results/spatial_results/sample_date_spat.png', width = 16, height = 8)
 
 # relative abundance ------------------------------------------------------
 
@@ -1293,9 +1386,13 @@ rel_abun_grid = cowplot::plot_grid(p1, p2, p3, p4, p5, p6, nrow = 2, align = 'hv
 
 # relative abundance ratio ------------------------------------------------
 
-cut_pts = c(-100, -80, -70, -60, -50, -40, -30, -20, -10, -1, 1, 10, 20, 30, 40, 50, 60, 70, 80, 100)
+# cut_pts = c(-100, -80, -70, -60, -50, -40, -30, -20, -10, -1, 1, 10, 20, 30, 40, 50, 60, 70, 80, 100)
 cut_pts = c(-100, -25, -20, -15, -10, -5, -1, 1, 5, 10, 15, 20, 25, 100)
 labs = c('<-25', '(-25, -20]', '(-20, -15]', '(-15, -10]', '(-10, -5]', '(-5, -1]', '(-1, 1]', '(1, 5]', '(5, 10]', '(10, 15]', '(15, 20]', '(20, 25]', '>25')
+
+
+# cut_pts = c(100, 25, 20, 15, 10, 5, 1, -1, -5, -10, -15, -20, -25, -100)
+# labs = c('>25', '(20, 25]', '(15, 20]', '(10, 15]', '(5, 10]', '(1, 5]', '(-1, 1]', '(-5, -1]', '(-5, -10]', '(-15, -10]', '(-20, -15]', '(-25, -20]', '<-25')
 
 
 fish_ratio = fish_plot_year %>% 
@@ -1312,12 +1409,15 @@ labs = levels(cut(fish_ratio$quantile, breaks = cut_pts))
 cols = fields::two.colors(n = length(labs), start = 'blue', end = 'red')
 
 
+fish_ratio = fish_ratio %>% 
+  mutate(brks = factor(brks, levels = rev(levels(brks))))
+
 ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
-  geom_jitter(data = fish_ratio,
-              aes(x = lon, y = lat, color = brks), size = 1.5, width = 0.05, height = 0.05) +
-  scale_color_manual(values = cols) +
+  geom_point(data = fish_ratio,
+              aes(x = lon, y = lat, color = brks), size = 1.5) +
+  scale_color_manual(values = rev(cols), labels = rev(labs)) +
   xlab("Longitude") +
   ylab("Latitude") +
   facet_wrap(~ fish,
@@ -2671,10 +2771,9 @@ ggplot(catch_plot, aes(x = SURVEYDATE, y = exp(value))) +
   geom_line(aes(color = Fish), size = 1.2) +
   facet_wrap(~ Gear, scales = 'free_y', ncol = 1) +
   scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd('2016-06-02'), ymd('2016-09-25'))) +
-  scale_linetype_manual(values=c("solid", 'longdash', 'dotted')) +
   ggtitle('') +
   xlab('') +
-  ylab('Catchability') +
+  ylab('Effort Scaling') +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 14),
         legend.text = element_text(size = 16),
         axis.text = element_text(size = 18),
@@ -2683,7 +2782,7 @@ ggplot(catch_plot, aes(x = SURVEYDATE, y = exp(value))) +
         legend.position = 'bottom',
         legend.key.size = unit(1, "cm"),
         legend.title=element_blank(),
-        strip.text = element_text(size=12))
+        strip.text = element_text(size=16))
 
 # ggsave(paste0('results/spatial_results/catchability_curves_exp_', yr, '.png'), width = 12, height = 12)
 # ggsave(paste0('results/spatial_results/catchability_curves_log_', yr, '.png'), width = 12, height = 12)
