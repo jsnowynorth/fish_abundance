@@ -139,8 +139,9 @@ model {
   OMEGA = each_lake * omega;
 
   theta_star = Z * phi;
+  // theta_star_star = Zstar * phi # zstar is all temperature doy sin cos stuff
   theta = theta_star - mean(theta_star) - variance(theta_star)/2;
-  // theta = log(exp(theta_star) - mean(exp(theta_star)) + 1);
+  // theta = theta_star - mean(theta_star_star) - variance(theta_star_star)/2; # mean 0 for all days
   
   gamma = B0 + X * beta + OMEGA;
   lambda = log(effort) + gamma + theta;

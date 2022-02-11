@@ -861,6 +861,9 @@ betas_plt = betas_plt %>%
   mutate(Variable = str_to_lower(Variable)) %>% 
   mutate(Variable = factor(Variable, levels = c('int', 'max depth', 'lake area', 'ag', 'urban', 'wetlands', 'gdd', 'secchi')))
 
+betas_plt = betas_plt %>% 
+  mutate(model = factor(model, levels = c('Varying Catchability', 'Constant Catchability')))
+
 
 # https://stackoverflow.com/questions/54438495/shift-legend-into-empty-facets-of-a-faceted-plot-in-ggplot2
 
@@ -934,7 +937,7 @@ p1 = ggplot(betas_plt, aes(y = reorder(species, desc(species)))) +
   scale_x_symmetric() +
   facet_wrap(~Variable, scales = 'free_x', ncol = 2) +
   scale_shape_manual(values = c(1, 19)) +
-  scale_color_manual(values = c('red', 'blue')) +
+  scale_color_manual(values = c('blue', 'red')) +
   xlab('Parameter Estimate') +
   ylab('') +
   guides(shape = 'none') +
@@ -2786,6 +2789,106 @@ ggplot(catch_plot, aes(x = SURVEYDATE, y = exp(value))) +
 
 # ggsave(paste0('results/spatial_results/catchability_curves_exp_', yr, '.png'), width = 12, height = 12)
 # ggsave(paste0('results/spatial_results/catchability_curves_log_', yr, '.png'), width = 12, height = 12)
+
+
+
+# every lake one species one gear catch curves ----------------------------
+
+phis = phi
+fish_name = "black crappie"
+gear_name = "TN"
+yr = 2016
+df = fish_plot
+
+# center_temp
+catchability_mean_by_lake = function(phis, fish_name, gear_name, yr, df){
+  
+  tC = center_temp %>%
+    filter(year(SURVEYDATE) == yr)
+  
+  lakes = df %>% 
+    distinct(DOW)
+  
+  which_phi = which(levels(df$COMMON_NAME) == fish_name)
+  
+  n_samps = dim(phis)[1]
+  n_days = as.numeric(range(tC$SURVEYDATE)[2] - range(tC$SURVEYDATE)[1]+1)
+  n_lakes = nrow(lakes)
+  catch_post_GN = catch_post_TN = array(NA, dim = c(n_days, n_samps, n_lakes))
+  
+  for(i in 1:n_lakes){
+    
+    lake = c(lakes[i,])$DOW
+    tC_tmp = tC %>% 
+      filter(DOW == lake)
+    
+    TN_df = tC_tmp %>% 
+      mutate(TN = 1,
+             DOY = yday(SURVEYDATE)) %>% 
+      relocate(temp_0, .after = DOY) %>% 
+      mutate(DOY = yday(SURVEYDATE),
+             DOY_sin_semi = sin(DOY/121 * 2*pi),
+             DOY_cos_semi = cos(DOY/121 * 2*pi),
+             DOY_sin_semi_temp = DOY_sin_semi * temp_0,
+             DOY_cos_semi_temp = DOY_cos_semi * temp_0,
+             GN = 0) %>% 
+      mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+      select(-c(SURVEYDATE, DOY, DOW, year))
+    
+    GN_df = tC_tmp %>% 
+      mutate(TN = 1,
+             DOY = yday(SURVEYDATE)) %>% 
+      relocate(temp_0, .after = DOY) %>% 
+      mutate(DOY = yday(SURVEYDATE),
+             DOY_sin_semi = sin(DOY/121 * 2*pi),
+             DOY_cos_semi = cos(DOY/121 * 2*pi),
+             DOY_sin_semi_temp = DOY_sin_semi * temp_0,
+             DOY_cos_semi_temp = DOY_cos_semi * temp_0,
+             GN = 1) %>% 
+      mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
+      select(-c(SURVEYDATE, DOY, DOW, year))
+    
+    TN = as.matrix(TN_df)
+    GN = as.matrix(GN_df)
+    
+    for(j in 1:n_samps){
+      catch_post_GN[,j,i] = GN %*% phis[j,,which_phi]
+      catch_post_TN[,j,i] = TN %*% phis[j,,which_phi]
+    }
+    
+    print(i)
+  }
+  
+  TN = apply(catch_post_TN, c(1,3), mean)
+  GN = apply(catch_post_GN, c(1,3), mean)
+  
+  TN_df = as_tibble(TN, .name_repair = ~paste0('DOW_',as.character(lakes$DOW))) %>% 
+    mutate(day = 1:n_days) %>% 
+    pivot_longer(-day, names_to = c('remove', "DOW"), names_sep = '_', values_to = 'TN_temp') %>% 
+    select(-remove)
+  
+  GN_df = as_tibble(GN, .name_repair = ~paste0('DOW_',as.character(lakes$DOW))) %>% 
+    mutate(day = 1:n_days) %>% 
+    pivot_longer(-day, names_to = c('remove', "DOW"), names_sep = '_', values_to = 'GN_temp') %>% 
+    select(-remove)
+  
+  mean = TN_df %>% 
+    left_join(GN_df)
+
+  
+  return(mean)
+}
+
+post_curve = catchability_mean_by_lake(phis, fish_name, gear_name, yr, df)
+
+
+ggplot(post_curve, aes(x = day, y = GN_temp, color = DOW)) +
+  geom_line() +
+  guides(color="none")
+
+ggplot(post_curve, aes(x = day, y = exp(TN_temp), color = DOW)) +
+  geom_line() +
+  guides(color="none")
 
 
 

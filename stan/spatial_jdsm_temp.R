@@ -1,190 +1,27 @@
-
 library(tidyverse)
 library(rstan)
 library(fields)
 library(Matrix)
-library(lubridate)
-library(readxl)
-library(sf)
-library(rnaturalearth)
-library(rnaturalearthdata)
-library(mvtnorm)
-library(scales)
-library(progress)
-library(sparklyr)
-library(stringr)
-library(GGally)
-library(xtable)
-library(Vizumap)
-library(latex2exp)
-library(ggcorrplot)
-library(corrplot)
-library(ggpubr)
-library(Matrix)
-library(spam)
-library(abind)
-library(zoo)
-library(ggsci)
-
-# load in data ------------------------------------------------------------
-
-static = read_csv('data/Static_MN_Data_JE.csv') %>% mutate(DOW = (str_pad(DOW, 8, side = "left", pad = "0")))
-effort = read_csv('data/MN_catch_survey.csv') %>% mutate(DOW = (str_pad(DOW, 8, side = "left", pad = "0")))
-temp = read_rds('data/daily_degree_days_MN_lakes_glm2.rds') %>% ungroup()
-
-temp = temp %>%
-  select(date, temp_0, MNDOW_ID, DD5, DOY) %>% # C5 temperature
-  rename(SURVEYDATE = date) %>%
-  mutate(DOW = str_split(MNDOW_ID, '_', simplify = T)[,2]) %>%
-  select(-MNDOW_ID)
-
-GDD = temp %>% 
-  mutate(year = year(SURVEYDATE)) %>% 
-  group_by(year, DOW) %>% 
-  summarise(DD5 = max(DD5)) %>% 
-  ungroup() %>% 
-  group_by(DOW) %>%
-  mutate(DD5 = rollmean(DD5, k = 7, align = 'right', fill = NA)) %>% 
-  ungroup()
-
-
-secchi_year = read_csv('data/annual_median_remote_sensing_secchi.csv') %>% 
-  mutate(DOW = (str_pad(DOW, 8, side = "left", pad = "0"))) %>% 
-  select(year, annual.median.rs, DOW) %>% 
-  rename('secchi' = 'annual.median.rs')
-
-
-land = read_xlsx('data/MN_lake_landuse.xlsx')
-
-land = land %>%
-  select(MNDOW_ID, year:grass, lake_elevation_m) %>% 
-  mutate(DOW = str_split(MNDOW_ID, '_', simplify = T)[,2]) %>% 
-  select(-MNDOW_ID) %>% 
-  filter(complete.cases(.)) %>% 
-  mutate(DOW = as.factor(DOW)) %>% 
-  distinct(DOW, .keep_all = T)
-
-
-# data cleaning -----------------------------------------------------------
-
-# combine survey data with some static variables
-fish_dat = effort %>% 
-  left_join(static, by = 'DOW') %>%
-  select(DOW, COMMON_NAME, TOTAL_CATCH, EFFORT, GEAR, CPUE, SURVEYDATE, MAX_DEPTH_FEET, mean.gdd, LAKE_AREA_GIS_ACRES, 
-         LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING) %>%
-  mutate(SURVEYDATE = str_split(SURVEYDATE, ' ', simplify = T)[,1]) %>% 
-  mutate(DOW = as.factor(DOW),
-         COMMON_NAME = as.factor(COMMON_NAME),
-         GEAR = as.factor(GEAR),
-         SURVEYDATE = mdy(SURVEYDATE)) %>%
-  filter(complete.cases(.)) %>% 
-  filter(COMMON_NAME != 'white sucker',
-         COMMON_NAME != 'smallmouth bass',
-         COMMON_NAME != 'rock bass') %>%
-  filter(SURVEYDATE >= '1993-01-01') %>% 
-  mutate(GEAR = as.character(GEAR),
-         GEAR = ifelse(GEAR == 'GDE' | GEAR == 'GSH', 'GN', GEAR),
-         GEAR = as.factor(GEAR),
-         ind = 1) %>% 
-  group_by(DOW, COMMON_NAME, SURVEYDATE, GEAR) %>% 
-  summarise_all(~sum(.)) %>% 
-  ungroup() %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:LAKE_CENTER_UTM_NORTHING), ~ ./ind) %>% 
-  select(-ind) %>% 
-  mutate(COMMON_NAME = droplevels(COMMON_NAME),
-         DOW = droplevels(DOW),
-         GEAR = droplevels(GEAR)) %>% 
-  arrange(DOW) %>% 
-  mutate(year = year(SURVEYDATE))
-
-# add in land use
-fish_dat = fish_dat %>% 
-  left_join(land %>% select(-year), by = c('DOW')) %>% 
-  filter(complete.cases(.))
-
-# all combos of fish, survey date, and gear
-all <- fish_dat %>% 
-  group_by(DOW) %>% 
-  tidyr::expand(COMMON_NAME, SURVEYDATE, GEAR) %>% 
-  ungroup() %>% 
-  arrange(DOW)
-
-
-fish_dat <- fish_dat %>% 
-  right_join(all) %>%
-  mutate(EFFORT = coalesce(EFFORT, 0L),
-         TOTAL_CATCH = coalesce(TOTAL_CATCH, 0L),
-         CPUE = coalesce(CPUE, 0L)) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), list(~coalesce(., 0L))) %>% 
-  group_by(GEAR, SURVEYDATE, DOW) %>% 
-  mutate(EFFORT = max(EFFORT)) %>%
-  ungroup() %>% 
-  group_by(DOW, SURVEYDATE) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), ~ mean(.[!is.na(.) & . != 0])) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), ~ ifelse(is.na(.), 0, .)) %>% 
-  ungroup() %>% 
-  mutate(TN = ifelse(GEAR == 'TN', 1, 0),
-         GN = ifelse(GEAR == 'GN', 1, 0)) %>% 
-  select(-GEAR) %>% 
-  mutate(COMMON_NAME = droplevels(COMMON_NAME),
-         DOW = droplevels(DOW)) %>%
-  mutate(CPUE = TOTAL_CATCH/EFFORT,
-         CPUE = ifelse(is.na(CPUE), 0, CPUE)) %>% 
-  arrange(DOW)
-
-
-# center temp by subset of lakes
-center_temp = temp %>% 
-  select(SURVEYDATE, temp_0, DOW) %>% 
-  mutate(year = year(SURVEYDATE)) %>% 
-  filter(year >= 2000) %>% 
-  mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
-  filter(filter_date > ymd('2016-06-01'),
-         filter_date < ymd('2016-09-30')) %>% 
-  select(-filter_date) %>% 
-  group_by(DOW, year) %>% 
-  mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% 
-  ungroup()
-
-# center by lake by year
-fish_dat = fish_dat %>% 
-  inner_join(GDD) %>% 
-  inner_join(secchi_year, by = c('DOW', 'year')) %>% 
-  filter(year >= 2000) %>% 
-  mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
-  filter(filter_date > ymd('2016-06-01'),
-         filter_date < ymd('2016-09-30')) %>% 
-  select(-filter_date) %>% 
-  inner_join(center_temp %>% 
-               select(SURVEYDATE, temp_0, DOW)) %>% 
-  mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% 
-  mutate(DOY = yday(SURVEYDATE),
-         DOY_sin_semi = sin(DOY/121 * 2*pi),
-         DOY_cos_semi = cos(DOY/121 * 2*pi),
-         DOY_sin_semi_temp = DOY_sin_semi * temp_0,
-         DOY_cos_semi_temp = DOY_cos_semi * temp_0) %>% 
-  mutate(DOW = as.factor(DOW)) %>% 
-  arrange(DOW, year, COMMON_NAME)
 
 
 # load data ---------------------------------------------------------------
 
-# fish_dat = read_csv('data/fish_dat.csv')
-# 
-# fish_dat = fish_dat %>% 
-#   mutate(DOW = as.factor(DOW),
-#          COMMON_NAME = as.factor(COMMON_NAME)) %>% 
-#   arrange(DOW, year, COMMON_NAME)
+fish_dat = read_csv('data/fish_dat.csv')
+
+fish_dat = fish_dat %>% 
+  mutate(DOW = as.factor(DOW),
+         COMMON_NAME = as.factor(COMMON_NAME)) %>% 
+  arrange(DOW, year, COMMON_NAME)
 
 # 308 lakes
 # only lakes observed 4 or more times
-# fish_dat = fish_dat %>%
-#   group_by(DOW) %>%
-#   filter(n() >= 6*12) %>%
-#   ungroup() %>%
-#   mutate_at(vars(DOW), ~droplevels(.))
-# 
-# length(table(fish_dat$DOW))
+fish_dat = fish_dat %>%
+  group_by(DOW) %>%
+  filter(n() >= 10*12) %>%
+  ungroup() %>%
+  mutate_at(vars(DOW), ~droplevels(.))
+
+length(table(fish_dat$DOW))
 
 
 # mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15,17)]
@@ -196,12 +33,12 @@ fish_dat = fish_dat %>%
 
 
 # with AG
-# mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15)]
-# temporal_covs = colnames(fish_dat)[c(23, 24)]
-# mean_covs_log = colnames(fish_dat)[c(7, 9)]
-# mean_covs_logit = colnames(fish_dat)[c(13:15)]
-# catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
-# gear_types = colnames(fish_dat)[c(21, 22)]
+mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15)]
+temporal_covs = colnames(fish_dat)[c(23, 24)]
+mean_covs_log = colnames(fish_dat)[c(7, 9)]
+mean_covs_logit = colnames(fish_dat)[c(13:15)]
+catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
+gear_types = colnames(fish_dat)[c(21, 22)]
 
 
 # without AG
@@ -215,9 +52,9 @@ gear_types = colnames(fish_dat)[c(21, 22)]
 
 # set up stan parameters --------------------------------------------------
 
-
-create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, center_temp){
-
+create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs){
+  
+  
   fish_dat = fish_dat %>% 
     arrange(DOW, SURVEYDATE, COMMON_NAME, GN)
   
@@ -264,12 +101,7 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
     mutate_at(vars(all_of(catch_covs)), .funs = list(GN = ~.*GN))
   
   temp_obs_lakes = center_temp %>% 
-    filter(DOW %in% unique(fish_dat$DOW)) %>% 
-    group_by(DOW) %>% 
-    mutate(dow = weekdays(SURVEYDATE)) %>% 
-    filter(dow == "Monday") %>% 
-    select(-dow) %>% 
-    ungroup()
+    filter(DOW %in% unique(fish_dat$DOW))
   
   TN = temp_obs_lakes %>% 
     mutate(TN = 1,
@@ -344,36 +176,31 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
   
 }
 
-dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, center_temp)
+dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs)
 
-rm(all, effort, GDD, land, secchi_year, static, temp, create_pars)
-
-out = stan(file = 'stan/spatial_stan_tmp.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1, refresh = 10) # spatial cholesky
-
-saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake.rds")
-
-# out = stan(file = 'stan/spatial_jsdm_poisson_cholesky.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1) # spatial cholesky
+out = stan(file = 'stan/spatial_stan_tmp.stan', data = dat, iter = 100, warmup = 50, chains = 1, cores = 1) # spatial cholesky
 
 # saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake_random_effect.rds")
 
 # saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect_int.rds')
 # saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
 
-out = read_rds("C:/Users/jsnow/Desktop/stan_lake.rds")
-
-chains = extract(out, permuted = T)
-names(chains)
-lapply(chains, dim)
+# out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
 
 
-phis = chains$phi[100,,]
-zm = dat$Zstar %*% chains$phi[sample(1:999, size = 1),,]
+
+mean(exp(dat$Zstar %*% chains$phi[10,,]))
+
+phis = chains$phi[1,,]
+zm = dat$Zstar %*% phis
 mu = mean(zm)
 sig = var(c(zm))/2
 mean(exp(zm - mu - sig))
 
-apply(chains$omega, 3, mean)
 
+chains = extract(out, permuted = T)
+names(chains)
+lapply(chains, dim)
 
 b_names = colnames(dat$X)
 phi_names = colnames(dat$Z)
