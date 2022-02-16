@@ -348,16 +348,10 @@ dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_l
 
 rm(all, effort, GDD, land, secchi_year, static, temp, create_pars)
 
-out = stan(file = 'stan/spatial_stan_tmp.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1, refresh = 10) # spatial cholesky
+out = stan(file = 'stan/spatial_jsdm_effort_scaling.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1, refresh = 10) # our model
 
-saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake.rds")
+# saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake.rds")
 
-# out = stan(file = 'stan/spatial_jsdm_poisson_cholesky.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1) # spatial cholesky
-
-# saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake_random_effect.rds")
-
-# saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect_int.rds')
-# saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect.rds')
 
 out = read_rds("C:/Users/jsnow/Desktop/stan_lake.rds")
 
