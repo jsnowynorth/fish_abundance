@@ -69,40 +69,40 @@ land = land %>%
 
 # combine survey data with some static variables
 fish_dat = effort %>% 
-  left_join(static, by = 'DOW') %>%
+  left_join(static, by = 'DOW') %>% # join effort and static
   select(DOW, COMMON_NAME, TOTAL_CATCH, EFFORT, GEAR, CPUE, SURVEYDATE, MAX_DEPTH_FEET, mean.gdd, LAKE_AREA_GIS_ACRES, 
-         LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING) %>%
+         LAKE_CENTER_UTM_EASTING, LAKE_CENTER_UTM_NORTHING) %>% # select wanted columns
   mutate(SURVEYDATE = str_split(SURVEYDATE, ' ', simplify = T)[,1]) %>% 
   mutate(DOW = as.factor(DOW),
          COMMON_NAME = as.factor(COMMON_NAME),
          GEAR = as.factor(GEAR),
-         SURVEYDATE = mdy(SURVEYDATE)) %>%
-  filter(complete.cases(.)) %>% 
+         SURVEYDATE = mdy(SURVEYDATE)) %>% # format variables
+  filter(complete.cases(.)) %>% # only complete observations
   filter(COMMON_NAME != 'white sucker',
          COMMON_NAME != 'smallmouth bass',
-         COMMON_NAME != 'rock bass') %>%
-  filter(SURVEYDATE >= '1993-01-01') %>% 
+         COMMON_NAME != 'rock bass') %>% # remove unused fish
+  filter(SURVEYDATE >= '1993-01-01') %>% # subset to after 1993
   mutate(GEAR = as.character(GEAR),
          GEAR = ifelse(GEAR == 'GDE' | GEAR == 'GSH', 'GN', GEAR),
          GEAR = as.factor(GEAR),
-         ind = 1) %>% 
+         ind = 1) %>% # fix GN gears
   group_by(DOW, COMMON_NAME, SURVEYDATE, GEAR) %>% 
-  summarise_all(~sum(.)) %>% 
+  summarise_all(~sum(.)) %>% # handle fringe case with multiple obs in year lake (~48 instances)
   ungroup() %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:LAKE_CENTER_UTM_NORTHING), ~ ./ind) %>% 
+  mutate_at(vars(MAX_DEPTH_FEET:LAKE_CENTER_UTM_NORTHING), ~ ./ind) %>% # correct fringe summaries
   select(-ind) %>% 
   mutate(COMMON_NAME = droplevels(COMMON_NAME),
          DOW = droplevels(DOW),
-         GEAR = droplevels(GEAR)) %>% 
+         GEAR = droplevels(GEAR)) %>% # drop unused factors
   arrange(DOW) %>% 
-  mutate(year = year(SURVEYDATE))
+  mutate(year = year(SURVEYDATE)) # presentation
 
 # add in land use
 fish_dat = fish_dat %>% 
   left_join(land %>% select(-year), by = c('DOW')) %>% 
   filter(complete.cases(.))
 
-# all combos of fish, survey date, and gear
+# all combos of fish, survey date, and gear (when fish wasn't caught should be 0)
 all <- fish_dat %>% 
   group_by(DOW) %>% 
   tidyr::expand(COMMON_NAME, SURVEYDATE, GEAR) %>% 
@@ -111,20 +111,20 @@ all <- fish_dat %>%
 
 
 fish_dat <- fish_dat %>% 
-  right_join(all) %>%
+  right_join(all) %>% # expand data to include 0 caught cases
   mutate(EFFORT = coalesce(EFFORT, 0L),
          TOTAL_CATCH = coalesce(TOTAL_CATCH, 0L),
-         CPUE = coalesce(CPUE, 0L)) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), list(~coalesce(., 0L))) %>% 
+         CPUE = coalesce(CPUE, 0L)) %>% # change NA's from join to 0
+  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), list(~coalesce(., 0L))) %>%  # change NA's from join to 0
   group_by(GEAR, SURVEYDATE, DOW) %>% 
-  mutate(EFFORT = max(EFFORT)) %>%
+  mutate(EFFORT = max(EFFORT)) %>% # make sure the effort is the same across sample numbers
   ungroup() %>% 
   group_by(DOW, SURVEYDATE) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), ~ mean(.[!is.na(.) & . != 0])) %>% 
-  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), ~ ifelse(is.na(.), 0, .)) %>% 
+  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), ~ mean(.[!is.na(.) & . != 0])) %>% # make sure variables are not zero
+  mutate_at(vars(MAX_DEPTH_FEET:lake_elevation_m), ~ ifelse(is.na(.), 0, .)) %>%  # make sure variables are not zero
   ungroup() %>% 
   mutate(TN = ifelse(GEAR == 'TN', 1, 0),
-         GN = ifelse(GEAR == 'GN', 1, 0)) %>% 
+         GN = ifelse(GEAR == 'GN', 1, 0)) %>% # number gear
   select(-GEAR) %>% 
   mutate(COMMON_NAME = droplevels(COMMON_NAME),
          DOW = droplevels(DOW)) %>%
@@ -133,36 +133,36 @@ fish_dat <- fish_dat %>%
   arrange(DOW)
 
 
-# center temp by subset of lakes
+# center temp by subset of lakes - used in covariate construction
 center_temp = temp %>% 
   select(SURVEYDATE, temp_0, DOW) %>% 
   mutate(year = year(SURVEYDATE)) %>% 
   filter(year >= 2000) %>% 
   mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
   filter(filter_date > ymd('2016-06-01'),
-         filter_date < ymd('2016-09-30')) %>% 
+         filter_date < ymd('2016-09-30')) %>% # center based on "fishing season"
   select(-filter_date) %>% 
   group_by(DOW, year) %>% 
-  mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% 
+  mutate(temp_0 = (temp_0 - mean(temp_0))/sd(temp_0)) %>% # standardized
   ungroup()
 
-# center by lake by year
+# add in GDD, secchi, and centered temp
 fish_dat = fish_dat %>% 
-  inner_join(GDD) %>% 
-  inner_join(secchi_year, by = c('DOW', 'year')) %>% 
-  filter(year >= 2000) %>% 
+  inner_join(GDD) %>% # add GDD
+  inner_join(secchi_year, by = c('DOW', 'year')) %>% # add secchi
+  filter(year >= 2000) %>% # filter year
   mutate(filter_date = ymd(format(SURVEYDATE, "2016-%m-%d"))) %>% 
   filter(filter_date > ymd('2016-06-01'),
-         filter_date < ymd('2016-09-30')) %>% 
+         filter_date < ymd('2016-09-30')) %>% # filter fishing season
   select(-filter_date) %>% 
   inner_join(center_temp %>% 
-               select(SURVEYDATE, temp_0, DOW)) %>% 
-  mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% 
+               select(SURVEYDATE, temp_0, DOW)) %>% # add temp
+  mutate(DD5 = (DD5 - mean(DD5))/sd(DD5)) %>% # standardized GDD
   mutate(DOY = yday(SURVEYDATE),
          DOY_sin_semi = sin(DOY/121 * 2*pi),
          DOY_cos_semi = cos(DOY/121 * 2*pi),
          DOY_sin_semi_temp = DOY_sin_semi * temp_0,
-         DOY_cos_semi_temp = DOY_cos_semi * temp_0) %>% 
+         DOY_cos_semi_temp = DOY_cos_semi * temp_0) %>% # create semi-annual fishing season
   mutate(DOW = as.factor(DOW)) %>% 
   arrange(DOW, year, COMMON_NAME)
 
@@ -176,35 +176,8 @@ fish_dat = fish_dat %>%
 #          COMMON_NAME = as.factor(COMMON_NAME)) %>% 
 #   arrange(DOW, year, COMMON_NAME)
 
-# 308 lakes
-# only lakes observed 4 or more times
-# fish_dat = fish_dat %>%
-#   group_by(DOW) %>%
-#   filter(n() >= 6*12) %>%
-#   ungroup() %>%
-#   mutate_at(vars(DOW), ~droplevels(.))
-# 
-# length(table(fish_dat$DOW))
 
-
-# mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15,17)]
-# temporal_covs = colnames(fish_dat)[c(23, 24)]
-# mean_covs_log = colnames(fish_dat)[c(7, 9)]
-# mean_covs_logit = colnames(fish_dat)[c(13:15,17)]
-# catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
-# gear_types = colnames(fish_dat)[c(21, 22)]
-
-
-# with AG
-# mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 13:15)]
-# temporal_covs = colnames(fish_dat)[c(23, 24)]
-# mean_covs_log = colnames(fish_dat)[c(7, 9)]
-# mean_covs_logit = colnames(fish_dat)[c(13:15)]
-# catch_covs = colnames(fish_dat)[c(25, 27:30)] # temp doy interaction
-# gear_types = colnames(fish_dat)[c(21, 22)]
-
-
-# without AG
+# without AG - select values to pass into pars
 mean_covs = colnames(fish_dat)[c(7, 9, 23, 24, 14:15)]
 temporal_covs = colnames(fish_dat)[c(23, 24)]
 mean_covs_log = colnames(fish_dat)[c(7, 9)]
@@ -348,8 +321,7 @@ dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_l
 
 rm(all, effort, GDD, land, secchi_year, static, temp, create_pars)
 
-out = stan(file = 'stan/spatial_jdsm_without_effort_scaling.stan', 
-           data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1) # spatial cholesky
+out = stan(file = 'stan/spatial_jdsm_without_effort_scaling.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1)
 
 # saveRDS(out, "C:/Users/jsnow/Desktop/stan_jdsm_without_effort_scaling.rds")
 
@@ -372,34 +344,6 @@ round(b_hat, 3) %>%
   relocate(Species)
 
 
-
-
-
-
-
-
-
-
-
-b = t(apply(chains$beta, c(2,3), mean))
-b_lower = t(apply(chains$beta, c(2,3), quantile, probs = 0.025))
-b_upper = t(apply(chains$beta, c(2,3), quantile, probs = 0.975))
-colnames(b) = colnames(b_lower) = colnames(b_upper) = colnames(head(dat$X))
-rownames(b) = rownames(b_lower) = rownames(b_upper) = dat$fish_names
-int = apply(chains$beta_0, 2, mean)
-int_lower = apply(chains$beta_0, 2, quantile, probs = 0.025)
-int_upper = apply(chains$beta_0, 2, quantile, probs = 0.975)
-b = cbind(b, int)
-b_lower = cbind(b_lower, int_lower)
-b_upper = cbind(b_upper, int_upper)
-b
-b_lower
-b_upper
-
-sign(b_lower) == sign(b_upper)
-
-# saveRDS(out, '/Users/joshuanorth/Desktop/stan_spatial.rds')
-
 par(mfrow = c(2,3))
 for(i in 1:6){
   plot(chains$beta_0[,i], type = 'l', main = i)
@@ -419,8 +363,6 @@ par(mfrow = c(2,3))
 for(i in 1:6){
   plot(chains$Sigma_species[,i,1], type = 'l', main = i)
 }
-
-# image.plot(apply(chains$Sigma_species, c(2,3), mean), col = two.colors(start = 'blue', end = 'red', middle = 'white'), zlim = c(-0.2, 0.2))
 
 par(mfrow = c(2,3))
 for(i in 1:6){
