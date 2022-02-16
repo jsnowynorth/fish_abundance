@@ -348,14 +348,12 @@ dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_l
 
 rm(all, effort, GDD, land, secchi_year, static, temp, create_pars)
 
-out = stan(file = 'stan/spatial_jdsm_poisson_no_catch.stan', 
+out = stan(file = 'stan/spatial_jdsm_without_effort_scaling.stan', 
            data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1) # spatial cholesky
 
-saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake_no_catch.rds")
-# saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake_random_effect_no_catch.rds")
-# saveRDS(out, '/Users/joshuanorth/Desktop/stan_lake_random_effect_no_catch.rds')
+# saveRDS(out, "C:/Users/jsnow/Desktop/stan_jdsm_without_effort_scaling.rds")
 
-# out = read_rds('/Users/joshuanorth/Desktop/stan_lake_random_effect_no_catch.rds')
+# out = read_rds('/Users/joshuanorth/Desktop/stan_jdsm_without_effort_scaling.rds')
 
 
 chains = extract(out, permuted = T)

@@ -350,23 +350,21 @@ rm(all, effort, GDD, land, secchi_year, static, temp, create_pars)
 
 out = stan(file = 'stan/spatial_jsdm_effort_scaling.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1, refresh = 10) # our model
 
-# saveRDS(out, "C:/Users/jsnow/Desktop/stan_lake.rds")
-
-
-out = read_rds("C:/Users/jsnow/Desktop/stan_lake.rds")
+# saveRDS(out, "C:/Users/jsnow/Desktop/stan_jsdm_effort_scaling.rds")
+# out = read_rds("C:/Users/jsnow/Desktop/stan_jsdm_effort_scaling.rds")
 
 chains = extract(out, permuted = T)
 names(chains)
 lapply(chains, dim)
 
 
-phis = chains$phi[100,,]
-zm = dat$Zstar %*% chains$phi[sample(1:999, size = 1),,]
-mu = mean(zm)
-sig = var(c(zm))/2
-mean(exp(zm - mu - sig))
-
-apply(chains$omega, 3, mean)
+# phis = chains$phi[100,,]
+# zm = dat$Zstar %*% chains$phi[sample(1:999, size = 1),,]
+# mu = mean(zm)
+# sig = var(c(zm))/2
+# mean(exp(zm - mu - sig))
+# 
+# apply(chains$omega, 3, mean)
 
 
 b_names = colnames(dat$X)
