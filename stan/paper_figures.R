@@ -869,14 +869,14 @@ for(i in 1:nrow(b_plt_no)){
 }
 
 
-betas_plt = rbind(b_plt %>% mutate(model = 'varying effort'), b_plt_no %>% mutate(model = 'constant effort'))
+betas_plt = rbind(b_plt %>% mutate(model = 'with effort scaling'), b_plt_no %>% mutate(model = 'without effort scaling'))
 
 betas_plt = betas_plt %>% 
   mutate(Variable = str_to_lower(Variable)) %>% 
   mutate(Variable = factor(Variable, levels = c('int', 'max depth', 'lake area', 'ag', 'urban', 'wetlands', 'gdd', 'secchi')))
 
 betas_plt = betas_plt %>% 
-  mutate(model = factor(model, levels = c('varying effort', 'constant effort')))
+  mutate(model = factor(model, levels = c('with effort scaling', 'without effort scaling')))
 
 
 # https://stackoverflow.com/questions/54438495/shift-legend-into-empty-facets-of-a-faceted-plot-in-ggplot2
@@ -967,7 +967,7 @@ p1 = ggplot(betas_plt, aes(y = reorder(species, desc(species)))) +
         axis.title = element_text(size = 16, face = 'bold'),
         title = element_text(size = 16, face = 'bold'),
         strip.text = element_text(size = 16),
-        legend.text = element_text(size = 14),
+        legend.text = element_text(size = 16),
         legend.key.height = unit(1, 'cm'),
         panel.spacing = unit(1, "lines"),
         axis.text.y = element_text(angle = 45, vjust = -1, hjust = 1))
@@ -977,6 +977,38 @@ grid.draw(shift_legend(p1))
 # width = 1700, height = 750
 # ggsave('results/spatial_results/parameter_estimate_plot.png', p1, width = 16, height = 8)
 
+
+
+ggplot(betas_plt %>% filter(Variable != 'int'), aes(y = reorder(species, desc(species)))) +
+  geom_point(aes(x = Mean, color = model), size = 1.5) +
+  geom_errorbar(aes(xmin = Lower, xmax = Upper, color = model), width = 0.2) +
+  geom_vline(xintercept = 0, alpha = 0.5) +
+  scale_x_symmetric() +
+  facet_wrap(~Variable, scales = 'free_x', ncol = 2,
+             labeller = labeller(Variable = c('max depth' = 'maximum depth',
+                                              'lake area' = 'lake area',
+                                              'urban' = 'percent urban',
+                                              'wetlands' = 'percent wetlands',
+                                              'gdd' = 'growing degree days',
+                                              'secchi' = 'secchi disk depth'))) +
+  scale_shape_manual(values = c(1, 19)) +
+  scale_color_manual(values = c('blue', 'red')) +
+  xlab('') +
+  ylab('') +
+  guides(shape = 'none') +
+  theme(legend.title=element_blank(),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'),
+        title = element_text(size = 16, face = 'bold'),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 18),
+        legend.key.height = unit(1, 'cm'),
+        panel.spacing = unit(1, "lines"),
+        axis.text.y = element_text(angle = 45, vjust = -1, hjust = 1),
+        legend.position="bottom",
+        plot.margin = margin(0.1,0.5,0.1,0.1, "cm"))
+
+ggsave('results/spatial_results/parameter_estimate_plot_no_int.png', width = 10, height = 10)
 
 
 # covariance figure -------------------------------------------------------
@@ -1045,7 +1077,8 @@ ggplot(data = mean_complete) +
 
 
 
-fnames_df = tibble(name = paste0(fnames, ": \n", round(apply(tau, 2, mean)^2, 2)), ind = seq(1:6))
+fnames_df = tibble(name = paste0(fnames, ": \n", sprintf("%0.2f", round(apply(tau, 2, mean)^2, 2))), ind = seq(1:6))
+
 
 mean_complete <- upper_mean %>% 
   left_join(lower_mean, by = c('Row', 'Col')) %>% 
@@ -1061,12 +1094,12 @@ mean_complete <- upper_mean %>%
 
 ggplot(data = mean_complete) +
   geom_tile(color = "black", aes(Row, Col, fill = Cov1, width=0.95, height=0.95), size = .25) +
-  geom_text(aes(Row, Col, label = Cov2), color = "black", size = 8) +
+  geom_text(aes(Row, Col, label = Cov2), color = "black", size = 9) +
   scale_fill_gradientn(colors = two.colors(n = 29, start = 'blue', end = 'red', middle = '#f7f7f7'), limits = c(-0.5, 0.5),
                        guide = guide_colorbar(title = "",
                                               title.position = "bottom",
-                                              barwidth = 25,
-                                              barheight = 2.5),
+                                              barwidth = 40,
+                                              barheight = 3),
                        na.value = 'grey80') +
   labs(x="", y="", title="") +
   theme_bw() + 
@@ -1076,7 +1109,7 @@ ggplot(data = mean_complete) +
         panel.border = element_blank(),
         legend.position="bottom",
         legend.box.margin=margin(-20,0,0,0),
-        legend.text=element_text(size=20))
+        legend.text=element_text(size=28))
 
 
 # ggsave('results/spatial_results/species_dependenc_var.png', width = 20, height = 12)
@@ -1498,357 +1531,163 @@ ggplot() +
 
 # spatial plot of TN vs GN diff two days --------------------------------
 
-day1 = ymd('2016-06-15')
-day2 = ymd('2016-08-15')
-yr = 2016
-phis = phi
-betas = beta
-beta0s = beta_0
 
-sample_day_diff = function(yr, phis, betas, beta0s, day1, day2){
+sample_day_diff = function(phis, fish_names, yr, df, center_temp, day1, day2){
   
-  gdd_center = fish_dat %>% 
-    select(year, DOW) %>% 
-    inner_join(GDD) %>% 
-    summarise(mean = mean(DD5), sd = sd(DD5))
+  temp_obs_lakes = center_temp %>% 
+    filter(DOW %in% unique(fish_dat$DOW)) %>% 
+    group_by(DOW) %>% 
+    mutate(dow = weekdays(SURVEYDATE)) %>% 
+    # filter(dow == "Monday") %>% # remove this to make it over all days
+    select(-dow) %>% 
+    ungroup()
   
-  dates = center_temp %>% 
+  TN = temp_obs_lakes %>% 
+    mutate(TN = 1,
+           DOY = yday(SURVEYDATE)) %>% 
+    relocate(temp_0, .after = DOY) %>% 
+    mutate(DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/121 * 2*pi),
+           DOY_cos_semi = cos(DOY/121 * 2*pi),
+           DOY_sin_semi_temp = DOY_sin_semi * temp_0,
+           DOY_cos_semi_temp = DOY_cos_semi * temp_0,
+           GN = 0) %>% 
+    mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN))
+  
+  GN = temp_obs_lakes %>% 
+    mutate(TN = 1,
+           DOY = yday(SURVEYDATE)) %>% 
+    relocate(temp_0, .after = DOY) %>% 
+    mutate(DOY = yday(SURVEYDATE),
+           DOY_sin_semi = sin(DOY/121 * 2*pi),
+           DOY_cos_semi = cos(DOY/121 * 2*pi),
+           DOY_sin_semi_temp = DOY_sin_semi * temp_0,
+           DOY_cos_semi_temp = DOY_cos_semi * temp_0,
+           GN = 1) %>% 
+    mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN))
+  
+  Zstar = rbind(TN, GN)
+  Zstar_mat = Zstar %>% select(-c(SURVEYDATE:year, DOY)) %>% as.matrix()
+  
+  TN_inds = Zstar %>% 
+    mutate(ind = 1:n()) %>% 
     filter(year == yr) %>% 
-    distinct(SURVEYDATE) %>% 
+    filter(GN != 1) %>% 
+    select(ind) %>% 
     pull()
   
-  n_lakes = dat$n_lakes
-  n_days = length(dates)
+  GN_inds = Zstar %>% 
+    mutate(ind = 1:n()) %>% 
+    filter(year == yr) %>% 
+    filter(GN == 1) %>% 
+    select(ind) %>% 
+    pull()
   
-  day_TN_mean = day_GN_mean = array(NA, dim = c(n_days, K))
-  # day_TN_post = day_GN_post = array(NA, dim = c(n_days, n_samps, n_lakes, K))
-  
-  for(j in seq_along(dates)){
-    
-    day_TN_post = day_GN_post = array(NA, dim = c(n_samps, n_lakes, K))
-    
-    day_choice = dates[j]
-    
-    day_covs_TN = fish_plot %>%
-      select(DOW, all_of(mean_covs)) %>% 
-      group_by(DOW) %>% 
-      summarise_at(vars(all_of(mean_covs)), ~mean(.)) %>% 
-      select(-c(DD5, secchi)) %>% 
-      left_join(secchi_year %>% 
-                  filter(year == year(day_choice)) %>% select(-year)) %>% 
-      left_join(GDD %>% 
-                  filter(year == year(day_choice)) %>% select(-year)) %>% 
-      relocate(DD5, .after = LAKE_AREA_GIS_ACRES) %>% 
-      relocate(secchi, .after = DD5)  %>% 
-      mutate(DD5 = (DD5 - gdd_center$mean)/gdd_center$sd) %>% 
-      left_join(center_temp %>%
-                  filter(SURVEYDATE == day_choice), by = 'DOW') %>% 
-      select(-c(year)) %>% 
-      mutate(TN = 1) %>% 
-      relocate(temp_0, .after = TN) %>% 
-      mutate(DOY = yday(SURVEYDATE),
-             DOY_sin_semi = sin(DOY/121 * 2*pi),
-             DOY_cos_semi = cos(DOY/121 * 2*pi),
-             DOY_sin_semi_temp = DOY_sin_semi * temp_0,
-             DOY_cos_semi_temp = DOY_cos_semi * temp_0,
-             GN = 0) %>% 
-      select(-DOY) %>% 
-      mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
-      mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-      mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-      mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-      mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
-      select(-c(SURVEYDATE)) %>% 
-      arrange(DOW)
-    
-    day_covs_GN = fish_plot %>%
-      select(DOW, all_of(mean_covs)) %>% 
-      group_by(DOW) %>% 
-      summarise_at(vars(all_of(mean_covs)), ~mean(.)) %>% 
-      select(-c(DD5, secchi)) %>% 
-      left_join(secchi_year %>% 
-                  filter(year == year(day_choice)) %>% select(-year)) %>% 
-      left_join(GDD %>% 
-                  filter(year == year(day_choice)) %>% select(-year)) %>% 
-      relocate(DD5, .after = LAKE_AREA_GIS_ACRES) %>% 
-      relocate(secchi, .after = DD5) %>% 
-      mutate(DD5 = (DD5 - gdd_center$mean)/gdd_center$sd) %>% 
-      left_join(center_temp %>%
-                  filter(SURVEYDATE == day_choice), by = 'DOW') %>% 
-      select(-c(year)) %>% 
-      mutate(TN = 1) %>% 
-      relocate(temp_0, .after = TN) %>% 
-      mutate(DOY = yday(SURVEYDATE),
-             DOY_sin_semi = sin(DOY/121 * 2*pi),
-             DOY_cos_semi = cos(DOY/121 * 2*pi),
-             DOY_sin_semi_temp = DOY_sin_semi * temp_0,
-             DOY_cos_semi_temp = DOY_cos_semi * temp_0,
-             GN = 1) %>% 
-      select(-DOY) %>% 
-      mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
-      mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-      mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-      mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-      mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
-      select(-c(SURVEYDATE)) %>% 
-      arrange(DOW)
-    
-    
-    day_TN = day_covs_TN %>% 
-      select(-DOW) %>% 
-      as.matrix()
-    
-    day_GN = day_covs_GN %>% 
-      select(-DOW) %>% 
-      as.matrix()
-    
-    for(i in 1:n_samps){
-      coefs = rbind(beta[i,,], phi[i,,])
-      
-      day_TN_post[i,,] = exp(matrix(rep(beta_0[i,], n_lakes), n_lakes, byrow = T) + day_TN %*% coefs + omega[i,,])
-      day_GN_post[i,,] = exp(matrix(rep(beta_0[i,], n_lakes), n_lakes, byrow = T) + day_GN %*% coefs + omega[i,,])
-      
-    }
-    
-    # day_TN_mean[j] = mean(day_TN_post)
-    # day_GN_mean[j] = mean(day_GN_post)
-    
-    day_TN_mean[j,] = apply(day_TN_post, 3, mean)
-    day_GN_mean[j,] = apply(day_GN_post, 3, mean)
-    
-  }
-  
-  # n_samps, n_lakes, K
-  # nscale = n_samps * n_lakes * K
-  # TN_mean = sum(day_TN_mean * nscale)/(n_days*nscale)
-  # GN_mean = sum(day_GN_mean * nscale)/(n_days*nscale)
-  
-  nscale = n_samps * n_lakes
-  TN_mean = apply(day_TN_mean, 2, function(x) sum(x * nscale)/(n_days*nscale))
-  GN_mean = apply(day_GN_mean, 2, function(x) sum(x * nscale)/(n_days*nscale))
-  
-  
-  day_covs_TN1 = fish_plot %>%
-    select(DOW, all_of(mean_covs)) %>% 
+  nday = TN %>% 
+    filter(year == yr) %>% 
     group_by(DOW) %>% 
-    summarise_at(vars(all_of(mean_covs)), ~mean(.)) %>% 
-    select(-c(DD5, secchi)) %>% 
-    left_join(secchi_year %>% 
-                filter(year == year(day1)) %>% select(-year)) %>% 
-    left_join(GDD %>% 
-                filter(year == year(day1)) %>% select(-year)) %>% 
-    relocate(DD5, .after = LAKE_AREA_GIS_ACRES) %>% 
-    relocate(secchi, .after = DD5)  %>% 
-    mutate(DD5 = (DD5 - gdd_center$mean)/gdd_center$sd) %>% 
-    left_join(center_temp %>%
-                filter(SURVEYDATE == day1), by = 'DOW') %>% 
-    select(-c(year)) %>% 
-    mutate(TN = 1) %>% 
-    relocate(temp_0, .after = TN) %>% 
-    mutate(DOY = yday(SURVEYDATE),
-           DOY_sin_semi = sin(DOY/121 * 2*pi),
-           DOY_cos_semi = cos(DOY/121 * 2*pi),
-           DOY_sin_semi_temp = DOY_sin_semi * temp_0,
-           DOY_cos_semi_temp = DOY_cos_semi * temp_0,
-           GN = 0) %>% 
-    select(-DOY) %>% 
-    mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
-    mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-    mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-    mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-    mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
-    select(-c(SURVEYDATE)) %>% 
-    arrange(DOW)
+    summarise(n = n()) %>% 
+    select(n) %>% 
+    pull()
   
-  day_covs_TN2 = fish_plot %>%
-    select(DOW, all_of(mean_covs)) %>% 
-    group_by(DOW) %>% 
-    summarise_at(vars(all_of(mean_covs)), ~mean(.)) %>% 
-    select(-c(DD5, secchi)) %>% 
-    left_join(secchi_year %>% 
-                filter(year == year(day2)) %>% select(-year)) %>% 
-    left_join(GDD %>% 
-                filter(year == year(day2)) %>% select(-year)) %>% 
-    relocate(DD5, .after = LAKE_AREA_GIS_ACRES) %>% 
-    relocate(secchi, .after = DD5)  %>% 
-    mutate(DD5 = (DD5 - gdd_center$mean)/gdd_center$sd) %>% 
-    left_join(center_temp %>%
-                filter(SURVEYDATE == day2), by = 'DOW') %>% 
-    select(-c(year)) %>% 
-    mutate(TN = 1) %>% 
-    relocate(temp_0, .after = TN) %>% 
-    mutate(DOY = yday(SURVEYDATE),
-           DOY_sin_semi = sin(DOY/121 * 2*pi),
-           DOY_cos_semi = cos(DOY/121 * 2*pi),
-           DOY_sin_semi_temp = DOY_sin_semi * temp_0,
-           DOY_cos_semi_temp = DOY_cos_semi * temp_0,
-           GN = 0) %>% 
-    select(-DOY) %>% 
-    mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
-    mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-    mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-    mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-    mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
-    select(-c(SURVEYDATE)) %>% 
-    arrange(DOW)
-  
-  day_covs_GN1 = fish_plot %>%
-    select(DOW, all_of(mean_covs)) %>% 
-    group_by(DOW) %>% 
-    summarise_at(vars(all_of(mean_covs)), ~mean(.)) %>% 
-    select(-c(DD5, secchi)) %>% 
-    left_join(secchi_year %>% 
-                filter(year == year(day_choice1)) %>% select(-year)) %>% 
-    left_join(GDD %>% 
-                filter(year == year(day_choice1)) %>% select(-year)) %>% 
-    relocate(DD5, .after = LAKE_AREA_GIS_ACRES) %>% 
-    relocate(secchi, .after = DD5) %>% 
-    mutate(DD5 = (DD5 - gdd_center$mean)/gdd_center$sd) %>% 
-    left_join(center_temp %>%
-                filter(SURVEYDATE == day_choice1), by = 'DOW') %>% 
-    select(-c(year)) %>% 
-    mutate(TN = 1) %>% 
-    relocate(temp_0, .after = TN) %>% 
-    mutate(DOY = yday(SURVEYDATE),
-           DOY_sin_semi = sin(DOY/121 * 2*pi),
-           DOY_cos_semi = cos(DOY/121 * 2*pi),
-           DOY_sin_semi_temp = DOY_sin_semi * temp_0,
-           DOY_cos_semi_temp = DOY_cos_semi * temp_0,
-           GN = 1) %>% 
-    select(-DOY) %>% 
-    mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
-    mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-    mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-    mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-    mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
-    select(-c(SURVEYDATE)) %>% 
-    arrange(DOW)
-  
-  day_covs_GN2 = fish_plot %>%
-    select(DOW, all_of(mean_covs)) %>% 
-    group_by(DOW) %>% 
-    summarise_at(vars(all_of(mean_covs)), ~mean(.)) %>% 
-    select(-c(DD5, secchi)) %>% 
-    left_join(secchi_year %>% 
-                filter(year == year(day_choice2)) %>% select(-year)) %>% 
-    left_join(GDD %>% 
-                filter(year == year(day_choice2)) %>% select(-year)) %>% 
-    relocate(DD5, .after = LAKE_AREA_GIS_ACRES) %>% 
-    relocate(secchi, .after = DD5) %>% 
-    mutate(DD5 = (DD5 - gdd_center$mean)/gdd_center$sd) %>% 
-    left_join(center_temp %>%
-                filter(SURVEYDATE == day_choice2), by = 'DOW') %>% 
-    select(-c(year)) %>% 
-    mutate(TN = 1) %>% 
-    relocate(temp_0, .after = TN) %>% 
-    mutate(DOY = yday(SURVEYDATE),
-           DOY_sin_semi = sin(DOY/121 * 2*pi),
-           DOY_cos_semi = cos(DOY/121 * 2*pi),
-           DOY_sin_semi_temp = DOY_sin_semi * temp_0,
-           DOY_cos_semi_temp = DOY_cos_semi * temp_0,
-           GN = 1) %>% 
-    select(-DOY) %>% 
-    mutate_at(vars(temp_0:DOY_cos_semi_temp), .funs = list(GN = ~.*GN)) %>% 
-    mutate_at(vars(all_of(mean_covs_logit)), ~ ./100) %>% 
-    mutate_at(vars(all_of(mean_covs_logit)), ~ car::logit(., adjust = 0.001)) %>% 
-    mutate_at(vars(all_of(mean_covs_log)), ~ log(.)) %>% 
-    mutate_at(vars(all_of(mean_covs_log)), ~. - mean(.)) %>% 
-    select(-c(SURVEYDATE)) %>% 
-    arrange(DOW)
-  
-  
-  day_TN1 = day_covs_TN1 %>% 
-    select(-DOW) %>% 
-    as.matrix()
-  
-  day_TN2 = day_covs_TN2 %>% 
-    select(-DOW) %>% 
-    as.matrix()
-  
-  day_GN1 = day_covs_GN1 %>% 
-    select(-DOW) %>% 
-    as.matrix()
-  
-  day_GN2 = day_covs_GN2 %>% 
-    select(-DOW) %>% 
-    as.matrix()
-  
-  n_lakes = dat$n_lakes
-  
-  day_TN_post1 = day_GN_post1 = day_TN_post2 = day_GN_post2 = array(NA, dim = c(n_samps, n_lakes, K))
-  
+  n_samps = dim(phis)[1]
+  n_days = nday[1]
+  n_lakes = TN %>% 
+    distinct(DOW) %>% 
+    pull() %>% 
+    length()
+  effort_post_GN = effort_post_TN = array(NA, dim = c(6, n_days, n_samps, n_lakes))
   
   for(i in 1:n_samps){
-    coefs = rbind(beta[i,,], phi[i,,])
     
-    day_TN_post1[i,,] = exp(matrix(rep(beta_0[i,], n_lakes), n_lakes, byrow = T) + day_TN1 %*% coefs + omega[i,,])
-    day_GN_post1[i,,] = exp(matrix(rep(beta_0[i,], n_lakes), n_lakes, byrow = T) + day_GN1 %*% coefs + omega[i,,])
-    day_TN_post2[i,,] = exp(matrix(rep(beta_0[i,], n_lakes), n_lakes, byrow = T) + day_TN2 %*% coefs + omega[i,,])
-    day_GN_post2[i,,] = exp(matrix(rep(beta_0[i,], n_lakes), n_lakes, byrow = T) + day_GN2 %*% coefs + omega[i,,])
+    Ztmp = Zstar_mat %*% phis[i,,]
+    catch_curve = exp(Ztmp - mean(Ztmp) - var(c(Ztmp))/2)
+    
+    TN_tmp = t(catch_curve[TN_inds,])
+    GN_tmp = t(catch_curve[GN_inds,])
+    
+    dim(TN_tmp) = c(6, n_days, n_lakes)
+    dim(GN_tmp) = c(6, n_days, n_lakes)
+    
+    effort_post_TN[,,i,] = TN_tmp
+    effort_post_GN[,,i,] = GN_tmp
+    
+    print(i)
     
   }
   
-  TN_post1 = apply(day_TN_post1, c(2,3), mean)
-  GN_post1 = apply(day_GN_post1, c(2,3), mean)
-  TN_post2 = apply(day_TN_post2, c(2,3), mean)
-  GN_post2 = apply(day_GN_post2, c(2,3), mean)
+  # select day inds
+  d1_ind = Zstar %>% 
+    filter(year == yr) %>% 
+    filter(DOW == '01008700') %>% 
+    filter(GN != 1) %>% 
+    mutate(ind = 1:n()) %>% 
+    filter(SURVEYDATE == day1) %>% 
+    select(ind) %>% 
+    pull()
   
-  fish_names = c("crappie", 'bluegill', 'bass', 'pike', 'walleye', 'perch')
+  d2_ind = Zstar %>% 
+    filter(year == yr) %>% 
+    filter(DOW == '01008700') %>% 
+    filter(GN != 1) %>% 
+    mutate(ind = 1:n()) %>% 
+    filter(SURVEYDATE == day2) %>% 
+    select(ind) %>% 
+    pull()
   
-  colnames(TN_post1) = paste0('TN_', fish_names)
-  colnames(GN_post1) = paste0('GN_', fish_names)
-  colnames(TN_post2) = paste0('TN_', fish_names)
-  colnames(GN_post2) = paste0('GN_', fish_names)
+  # mean over all samples for species and lake
+  TNd1 = apply(effort_post_TN[,d1_ind,,], c(1,3), mean)
+  GNd1 = apply(effort_post_GN[,d1_ind,,], c(1,3), mean)
   
-  lake_loc = fish_plot %>% 
-    distinct(DOW, .keep_all = T) %>% 
-    select(DOW, lat, lon)
+  TNd2 = apply(effort_post_TN[,d2_ind,,], c(1,3), mean)
+  GNd2 = apply(effort_post_GN[,d2_ind,,], c(1,3), mean)
   
-  day_comp1 = day_covs_TN1 %>% 
-    select(DOW) %>% 
-    cbind(TN_post1) %>% 
-    cbind(GN_post1) %>% 
-    tibble() %>% 
-    left_join(lake_loc) %>% 
-    pivot_longer(-c(DOW, lat, lon), names_to = c('Gear', 'fish'), names_sep = '_', values_to = 'value1')
+  # mean over all samples and days for species and lake
+  TNall = apply(effort_post_TN, c(1,4), mean)
+  GNall = apply(effort_post_GN, c(1,4), mean)
+
+  TNdiff = t((TNd2 - TNd1)/TNall)
+  GNdiff = t((GNd2 - GNd1)/GNall)
+  colnames(TNdiff) = colnames(GNdiff) = fish_names
   
-  day_comp2 = day_covs_TN2 %>% 
-    select(DOW) %>% 
-    cbind(TN_post2) %>% 
-    cbind(GN_post2) %>% 
-    tibble() %>% 
-    left_join(lake_loc) %>% 
-    pivot_longer(-c(DOW, lat, lon), names_to = c('Gear', 'fish'), names_sep = '_', values_to = 'value2')
   
-  # day_comp = day_comp1 %>% 
-  #   mutate(doy1 = day_choice1) %>% 
-  #   left_join(day_comp2 %>% 
-  #               mutate(doy2 = day_choice2)) %>% 
-  #   mutate(diff = value2 - value1) %>% 
-  #   mutate(diff = if_else(Gear == "TN", diff/TN_mean, diff/GN_mean)) %>% 
-  #   select(-c(value1:doy2))
   
-  day_comp = day_comp1 %>% 
-    mutate(doy1 = day_choice1) %>% 
-    left_join(day_comp2 %>% 
-                mutate(doy2 = day_choice2)) %>% 
-    mutate(diff = value2 - value1) %>% 
-    group_by(DOW) %>% 
-    mutate(diff = if_else(Gear == "TN", diff/TN_mean, diff/GN_mean)) %>% 
-    ungroup() %>% 
-    select(-c(value1:doy2))
+  TN_join = Zstar %>% 
+    filter(year == yr) %>% 
+    distinct(DOW) %>% 
+    cbind(TNdiff) %>% 
+    as_tibble() %>% 
+    mutate(gear = "TN")
   
-  TN_mean
-  GN_mean
+  GN_join = Zstar %>% 
+    filter(year == yr) %>% 
+    distinct(DOW) %>% 
+    cbind(GNdiff) %>% 
+    as_tibble() %>% 
+    mutate(gear = "GN")
   
-  return(day_comp)
+  return(rbind(TN_join, GN_join))
   
 }
 
-day_comp = sample_day_diff(yr, phis, betas, beta0s, day1, day2)
+
+day1 = ymd('2016-06-15')
+day2 = ymd('2016-08-15')
+yr = 2016
+df = fish_plot
+phis = phi
+fish_names = c("black crappie", 'bluegill', 'largemouth bass', 'northern pike', 'walleye', 'yellow perch')
+
+
+day_comp = sample_day_diff(phis, fish_names, yr, df, center_temp, day1, day2)
+
 
 day_comp = day_comp %>% 
-  mutate(fish = factor(fish, levels = c('crappie','bluegill', 'bass','pike','walleye', 'perch')))
+  left_join(fish_plot %>% 
+              distinct(DOW, .keep_all = T) %>% 
+              select(DOW, lon, lat)) %>% 
+  pivot_longer(-c(DOW, gear, lat, lon), names_to = 'species', values_to = 'diff')
+
 
 quantile(day_comp$diff, probs = seq(0, 1, 0.01))
 
@@ -1857,18 +1696,12 @@ ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_point(data = day_comp %>%
-               filter(Gear == 'TN'),
+               filter(gear == 'TN'),
              aes(x = lon, y = lat, color = if_else(abs(diff) > 2, sign(diff)*2, diff)), size = 1.5) +
-  scale_color_gradient2(low = 'blue', high = 'red') +
-  xlab("Longitude") +
-  ylab("Latitude") +
-  facet_wrap(~ fish,
-             labeller = labeller(fish = c('crappie' = 'black crappie',
-                                          'bluegill' = 'bluegill',
-                                          'pike' = 'northern pike',
-                                          'perch' = 'yellow perch',
-                                          'bass' = 'largemouth bass',
-                                          'walleye' = 'walleye'))) +
+  scale_color_gradient2(low = 'blue', high = 'red', limits = c(-1.1 , 1.1)) +
+  xlab("") +
+  ylab("") +
+  facet_wrap(~ species) +
   ggtitle('') +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
@@ -1886,18 +1719,12 @@ ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_point(data = day_comp %>%
-               filter(Gear == 'GN'),
+               filter(gear == 'GN'),
              aes(x = lon, y = lat, color = if_else(abs(diff) > 2, sign(diff)*2, diff)), size = 1.5) +
-  scale_color_gradient2(low = 'blue', high = 'red') +
-  xlab("Longitude") +
-  ylab("Latitude") +
-  facet_wrap(~ fish,
-             labeller = labeller(fish = c('crappie' = 'black crappie',
-                                          'bluegill' = 'bluegill',
-                                          'pike' = 'northern pike',
-                                          'perch' = 'yellow perch',
-                                          'bass' = 'largemouth bass',
-                                          'walleye' = 'walleye'))) +
+  scale_color_gradient2(low = 'blue', high = 'red', limits = c(-1.1 , 1.1)) +
+  xlab("") +
+  ylab("") +
+  facet_wrap(~ species) +
   ggtitle('') +
   theme(legend.title=element_blank(),
         axis.text = element_text(size = 14),
@@ -1911,7 +1738,7 @@ ggplot() +
 
 
 
-# catchability curves -----------------------------------------------------
+# effort curves -----------------------------------------------------
 
 
 effort_scaling_curves = function(phis, fish_names, yr, df, center_temp){
