@@ -61,7 +61,7 @@ GDD = temp %>%
   summarise(DD5 = max(DD5)) %>% 
   ungroup() %>% 
   group_by(DOW) %>%
-  mutate(DD5 = rollmean(DD5, k = 7, align = 'right', fill = NA)) %>% 
+  mutate(DD5 = rollmean(DD5, k = 5, align = 'right', fill = NA)) %>% 
   ungroup()
 
 
@@ -374,12 +374,8 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, center_temp)
 
-# out = read_rds('data/stan_output/stan_lake_random_effect.rds')
-# out_no_catch = read_rds('data/stan_output/stan_lake_random_effect_no_catch.rds')
-# out = read_rds('C:/Users/jsnow/Desktop/stan_lake_random_effect.rds')
-# out_no_catch = read_rds('C:/Users/jsnow/Desktop/stan_lake_random_effect_no_catch.rds')
-out = read_rds('C:/Users/jsnow/Desktop/stan_lake.rds')
-out_no_catch = read_rds('C:/Users/jsnow/Desktop/stan_lake_no_catch.rds')
+out = read_rds('data/stan_lake.rds')
+out_no_catch = read_rds('data/stan_lake_no_catch.rds')
 
 
 chains = extract(out)

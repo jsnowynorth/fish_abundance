@@ -60,7 +60,7 @@ GDD = temp %>%
   summarise(DD5 = max(DD5)) %>% 
   ungroup() %>% 
   group_by(DOW) %>%
-  mutate(DD5 = rollmean(DD5, k = 7, align = 'right', fill = NA)) %>% 
+  mutate(DD5 = rollmean(DD5, k = 5, align = 'right', fill = NA)) %>% 
   ungroup()
 
 
