@@ -1217,7 +1217,7 @@ ggplot() +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_point(data = date_df_sd, 
              aes(x = lon, y = lat, color = doyrange), size = 1.5) +
-  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doyrange, probs = seq(0.05, 0.95, 0.15))),2), 
+  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doyrange, probs = seq(0.05, 0.95, 0.15))),0), 
                         palette = 'YlOrRd', direction = 1, name = 'Days') +
   xlab("Longitude") +
   ylab("Latitude") +
@@ -1280,7 +1280,7 @@ p2 = ggplot() +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_point(data = date_df_sd, 
              aes(x = lon, y = lat, color = doyrange), size = 1.5) +
-  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doyrange, probs = seq(0.05, 0.95, 0.15))),2), 
+  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doyrange, probs = seq(0.05, 0.95, 0.15))),0), 
                         palette = 'YlOrRd', direction = 1, name = 'Days') +
   xlab("") +
   ylab("") +
