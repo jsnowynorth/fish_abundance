@@ -374,8 +374,11 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, center_temp)
 
-out = read_rds('data/stan_lake.rds')
-out_no_catch = read_rds('data/stan_lake_no_catch.rds')
+out = read_rds('data/stan_jsdm_effort_scaling.rds')
+out_no_catch = read_rds('data/stan_jdsm_without_effort_scaling.rds')
+
+out = read_rds('/Users/jsnow/Documents/Research/fish_abundance/stan_output/stan_jsdm_effort_scaling.rds')
+out_no_catch = read_rds('/Users/jsnow/Documents/Research/fish_abundance/stan_output/stan_jdsm_without_effort_scaling.rds')
 
 
 chains = extract(out)
@@ -1165,7 +1168,7 @@ date_df_median = fish_plot %>%
 date_df_sd = fish_plot %>% 
   mutate(doy = yday(SURVEYDATE)) %>% 
   group_by(DOW) %>% 
-  summarise(doysd = sd(doy)) %>% 
+  summarise(doyrange = range(doy)[2] - range(doy)[1]) %>% 
   left_join(date_df %>% distinct(DOW, .keep_all = T), by = "DOW")
 
 
@@ -1213,8 +1216,8 @@ ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_point(data = date_df_sd, 
-             aes(x = lon, y = lat, color = doysd), size = 1.5) +
-  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doysd, probs = seq(0.05, 0.95, 0.15))),2), 
+             aes(x = lon, y = lat, color = doyrange), size = 1.5) +
+  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doyrange, probs = seq(0.05, 0.95, 0.15))),2), 
                         palette = 'YlOrRd', direction = 1, name = 'Days') +
   xlab("Longitude") +
   ylab("Latitude") +
@@ -1276,8 +1279,8 @@ p2 = ggplot() +
   geom_sf(data = usa) +
   coord_sf(xlim = c(lons[1] - 1, lons[2] + 1), ylim = c(lats[1] - 1, lats[2] + 1), expand = FALSE) +
   geom_point(data = date_df_sd, 
-             aes(x = lon, y = lat, color = doysd), size = 1.5) +
-  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doysd, probs = seq(0.05, 0.95, 0.15))),2), 
+             aes(x = lon, y = lat, color = doyrange), size = 1.5) +
+  scale_color_fermenter(breaks = round(unname(quantile(date_df_sd$doyrange, probs = seq(0.05, 0.95, 0.15))),2), 
                         palette = 'YlOrRd', direction = 1, name = 'Days') +
   xlab("") +
   ylab("") +
@@ -1864,8 +1867,8 @@ effort_plot = post_curves %>%
 ggplot(effort_plot, aes(x = SURVEYDATE, y = effort)) +
   geom_line(aes(color = species), size = 1.2) +
   facet_wrap(~ gear, scales = 'free_y', ncol = 1,
-             labeller = labeller(gear = c('GN' = 'gill net',
-                                          'TN' = 'trap net'))) +
+             labeller = labeller(gear = c('GN' = 'gill nets',
+                                          'TN' = 'trap nets'))) +
   scale_x_date(date_breaks = 'month', date_labels = "%b %d", limits = c(ymd('2016-06-02'), ymd('2016-09-25'))) +
   ggtitle('') +
   xlab('') +
