@@ -374,8 +374,8 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, center_temp)
 
-out = read_rds('data/stan_jsdm_effort_scaling.rds')
-out_no_catch = read_rds('data/stan_jdsm_without_effort_scaling.rds')
+# out = read_rds('data/stan_jsdm_effort_scaling.rds')
+# out_no_catch = read_rds('data/stan_jdsm_without_effort_scaling.rds')
 
 out = read_rds('/Users/jsnow/Documents/Research/fish_abundance/stan_output/stan_jsdm_effort_scaling.rds')
 out_no_catch = read_rds('/Users/jsnow/Documents/Research/fish_abundance/stan_output/stan_jdsm_without_effort_scaling.rds')
@@ -798,6 +798,7 @@ ggplot(b_plt, aes(y = reorder(species, desc(species)))) +
   guides(shape = 'none', color = 'none') 
 
 # ggsave('results/spatial_results/parameter_estimate_plot.png', width = 12, height = 6)
+# ggsave('results/eps_figures/parameter_estimate_plot.eps', width = 12, height = 6, device="eps")
 
 
 chains_no_catch = extract(out_no_catch)
@@ -978,7 +979,7 @@ grid.draw(shift_legend(p1))
 
 
 
-ggplot(betas_plt %>% filter(Variable != 'int'), aes(y = reorder(species, desc(species)))) +
+p = ggplot(betas_plt %>% filter(Variable != 'int'), aes(y = reorder(species, desc(species)))) +
   geom_point(aes(x = Mean, color = model), size = 1.5) +
   geom_errorbar(aes(xmin = Lower, xmax = Upper, color = model), width = 0.2) +
   geom_vline(xintercept = 0, alpha = 0.5) +
@@ -1007,7 +1008,10 @@ ggplot(betas_plt %>% filter(Variable != 'int'), aes(y = reorder(species, desc(sp
         legend.position="bottom",
         plot.margin = margin(0.1,0.5,0.1,0.1, "cm"))
 
-ggsave('results/spatial_results/parameter_estimate_plot_no_int.png', width = 10, height = 10)
+# ggsave('results/spatial_results/parameter_estimate_plot_no_int.png', width = 10, height = 10)
+# ggsave('results/eps_figures/parameter_estimate_plot_no_int.eps', dpi = 600, width = 10, height = 10, device=grDevices::cairo_ps)
+
+
 
 
 # covariance figure -------------------------------------------------------
@@ -1072,6 +1076,7 @@ ggplot(data = mean_complete) +
 
 
 
+
 # with variance on diagonal
 
 
@@ -1112,7 +1117,7 @@ ggplot(data = mean_complete) +
 
 
 # ggsave('results/spatial_results/species_dependenc_var.png', width = 20, height = 12)
-
+# ggsave('results/eps_figures/species_dependenc.eps', dpi = 600, width = 20, height = 12, device=grDevices::cairo_ps)
 
 # lake random effect ---------------------------------------------------
 
@@ -1148,6 +1153,7 @@ ggplot() +
         legend.key.height = unit(1, 'cm'))
 
 # ggsave("results/spatial_results/lake_random_effect.png", height = 8, width = 12)
+# ggsave('results/eps_figures/lake_random_effect.eps', dpi = 600, height = 8, width = 12, device=grDevices::cairo_ps)
 
 
 
@@ -1299,6 +1305,7 @@ p2 = ggplot() +
 
 cowplot::plot_grid(p1, p2)
 # ggsave('results/spatial_results/sample_date_spat.png', width = 16, height = 8)
+# ggsave('results/eps_figures/sample_date_spat.eps', dpi = 600, width = 16, height = 8, device=grDevices::cairo_ps)
 
 # relative abundance ------------------------------------------------------
 
@@ -1329,6 +1336,7 @@ ggplot() +
         legend.key.height = unit(1, 'cm'))
 
 # ggsave('results/spatial_results/relative_abundance.png', width = 12, height = 8)
+# ggsave('results/eps_figures/relative_abundance.eps', dpi = 600, width = 12, height = 8, device=grDevices::cairo_ps)
 
 
 
@@ -1496,8 +1504,16 @@ ggplot() +
   guides(color = guide_legend(override.aes = list(shape = 15, size = 7, fill = cols)))
 
 # ggsave('results/spatial_results/quantile_comparison_relative_abundance.png', width = 12, height = 8)
+# ggsave('results/eps_figures/quantile_comparison_relative_abundance.eps', dpi = 600, width = 12, height = 8, device=grDevices::cairo_ps)
 
 
+fish_ra_comp_lake = fish_plot_year %>% 
+  filter(GN == 0) %>% 
+  group_by(DOW, SURVEYDATE) %>% 
+  mutate(perc_scale = gamma/sum(gamma),
+         perc_no_scale = gamma_no_catch/sum(gamma_no_catch)) %>% 
+  ungroup() %>% 
+  mutate(diff = perc_scale - perc_no_scale) 
 
 # quantile(fish_ra_comp_lake$diff, probs = seq(0,1,0.01))
 ggplot() +
@@ -1526,6 +1542,7 @@ ggplot() +
 
 
 # ggsave('results/spatial_results/lake_composition_percentages_map.png', width = 12, height = 8)
+# ggsave('results/eps_figures/lake_composition_percentages_map.eps', dpi = 600, width = 12, height = 8, device=grDevices::cairo_ps)
 
 
 # spatial plot of TN vs GN diff two days --------------------------------
@@ -1711,6 +1728,7 @@ ggplot() +
         legend.key.height = unit(1, 'cm'))
 
 # ggsave('results/spatial_results/gear_TN_difference.png', width = 12, height = 8)
+# ggsave('results/eps_figures/gear_TN_difference.eps', dpi = 600, width = 12, height = 8, device=grDevices::cairo_ps)
 
 
 # Standardized Difference in Predicted Catch for 1 Unit Effort - GN
@@ -1734,6 +1752,7 @@ ggplot() +
         legend.key.height = unit(1, 'cm'))
 
 # ggsave('results/spatial_results/gear_GN_difference.png', width = 12, height = 8)
+# ggsave('results/eps_figures/gear_GN_difference.eps', dpi = 600, width = 12, height = 8, device=grDevices::cairo_ps)
 
 
 
@@ -1884,6 +1903,8 @@ ggplot(effort_plot, aes(x = SURVEYDATE, y = effort)) +
         strip.text = element_text(size=16))
 
 # ggsave(paste0('results/spatial_results/catchability_curves_', yr, '.png'), width = 12, height = 12)
+ggsave(paste0('results/eps_figures/catchability_curves_', yr, '.eps'), dpi = 600, width = 12, height = 12, device=grDevices::cairo_ps)
+
 
 # variance gamma vs random effect -----------------------------------------
 
