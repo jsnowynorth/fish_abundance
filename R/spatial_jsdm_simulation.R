@@ -29,20 +29,41 @@ fish_dat = fish_dat %>%
 
 
 # reduce the size of the data
-set.seed(1)
+# set.seed(1)
+# lselect = fish_dat %>% 
+#   select(DOW) %>% 
+#   distinct() %>% 
+#   sample_n(200) %>% 
+#   droplevels()
+
+
 lselect = fish_dat %>% 
+  mutate(cntr = 1) %>% 
+  group_by(DOW) %>% 
+  summarise(cnt = sum(cntr)) %>% 
+  ungroup() %>% 
+  arrange(desc(cnt)) %>% 
+  slice_head(n = 200) %>% 
   select(DOW) %>% 
-  distinct() %>% 
-  sample_n(50) %>% 
   droplevels()
 
-fish_dat = fish_dat %>% 
+
+
+
+fish_dat_sub = fish_dat %>% 
   right_join(lselect) %>% 
   droplevels()
 
-center_temp = center_temp %>% 
+center_temp_sub = center_temp %>% 
   right_join(lselect) %>% 
   droplevels()
+
+
+fish_dat %>% 
+  group_by(year) %>% 
+  mutate(cnt = 1) %>% 
+  summarise(cnt = sum(cnt)/12)
+
 
 
 # select covariates from data
@@ -183,67 +204,151 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, center_temp)
 
+dat_train = create_pars(fish_dat_sub %>% 
+                          mutate(year = year(SURVEYDATE)) %>% 
+                          filter(year != 2008 | year != 2018) %>% 
+                          droplevels(), 
+                        mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, 
+                        center_temp_sub %>% 
+                          mutate(year = year(SURVEYDATE)) %>% 
+                          filter(year != 2008 | year != 2018) %>% 
+                          droplevels())
+dat_test = create_pars(fish_dat_sub %>% 
+                         mutate(year = year(SURVEYDATE)) %>% 
+                         filter(year == 2008 | year == 2018) %>% 
+                         droplevels(), 
+                       mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, 
+                       center_temp_sub %>% 
+                         mutate(year = year(SURVEYDATE)) %>% 
+                         filter(year == 2008 | year == 2018) %>% 
+                         droplevels())
+
+str(dat)
+str(dat_train)
+str(dat_test)
 
 
 # simulate data ----------------------------------------------------------
 
+# set.seed(1)
+# 
+# beta_0 = rnorm(dat$K)
+# beta = matrix(rnorm(dat$K*dat$p_beta, 0, 0.3), dat$p_beta, dat$K)
+# Sigma_species = cov2cor(rinvwishart(12, diag(rep(1, dat$K))))
+# tau = c(1.14, 1.2, 0.5, 1.23, 0.8, 1.1)
+# phi = matrix(rnorm(dat$K*dat$p_phi, 0, 0.3), dat$p_phi, dat$K)
+# 
+# z = matrix(rnorm(dat$K*dat$n_lakes), dat$n_lakes, dat$K)
+# 
+# 
+# # intercept
+# B0 = matrix(rep(beta_0, dat$N), dat$N, dat$K, byrow = T)
+# 
+# # Random effects - mean zero by species
+# omega_star = z %*% diag(tau) %*% Sigma_species %*% diag(tau)
+# omega_mean = apply(omega_star, 2, mean) # calculate mean of omega
+# omega = omega_star - matrix(rep(omega_mean, dat$n_lakes), dat$n_lakes, dat$K, byrow = T)
+# OMEGA = dat$each_lake %*% omega
+# 
+# # relative abundance
+# gamma = B0 + dat$X %*% beta + OMEGA
+# range(exp(gamma))
+# 
+# # catchability
+# theta_star = dat$Z %*% phi
+# theta_star_star = dat$Zstar %*% phi
+# # theta = theta_star - mean(theta_star_star) - variance(theta_star_star)/2
+# theta = theta_star - mean(theta_star_star) - var(c(theta_star_star))/2
+# # theta = theta_star - apply(theta_star_star, 2, mean) - apply(theta_star_star, 2, var)/2
+# 
+# 
+# lambda = exp(log(dat$effort) + theta + gamma)
+# y = rpois(dat$N*dat$K, c(lambda))
+# Y = matrix(y, dat$N, dat$K)
+# 
+# dat$y_vec = y
+# dat$Y = Y
+
+
+gen_Y = function(beta_0, beta, phi, Sigma_species, tau, omega, dat){
+  
+  OMEGA = dat$each_lake %*% omega
+  
+  # relative abundance
+  B0 = matrix(rep(beta_0, dat$N), dat$N, dat$K, byrow = T)
+  gamma = B0 + dat$X %*% beta + OMEGA
+  
+  # catchability
+  theta_star = dat$Z %*% phi
+  theta_star_star = dat$Zstar %*% phi
+  theta = theta_star - mean(theta_star_star) - var(c(theta_star_star))/2
+  
+  
+  lambda = exp(log(dat$effort) + theta + gamma)
+  y = rpois(dat$N*dat$K, c(lambda))
+  Y = matrix(y, dat$N, dat$K)
+  
+  return(list(y_vec = y, Y = Y))
+  
+}
+
+
+out = read_rds("/Users/jsnow/Desktop/stan_lake_random_effect.rds")
+chains = extract(out, permuted = T)
+
+beta0 = apply(chains$beta_0, 2, mean)
+beta = apply(chains$beta, c(2,3), mean)
+phi = apply(chains$phi, c(2,3), mean)
+omega = apply(chains$omega, c(2,3), mean)
+Sigma_species = apply(chains$Sigma_species, c(2,3), mean)
+tau = apply(chains$tau, 2, mean)
+
+
+
+# join data with subsetted data
+omega_train = omega %>% 
+  as_tibble() %>% 
+  mutate(DOW = dat$lake_id) %>% 
+  right_join(lselect) %>% 
+  droplevels() %>% 
+  select(-DOW) %>% 
+  as.matrix() %>% 
+  unname()
+
+omega_test = omega %>% 
+  as_tibble() %>% 
+  mutate(DOW = dat$lake_id) %>% 
+  right_join(tibble(DOW = dat_test$lake_id)) %>% 
+  droplevels() %>% 
+  select(-DOW) %>% 
+  as.matrix() %>% 
+  unname()
+  
+
 set.seed(1)
+trainY = gen_Y(beta_0, beta, phi, Sigma_species, tau, omega_train, dat_train)
+testY = gen_Y(beta_0, beta, phi, Sigma_species, tau, omega_test, dat_test)
 
-beta_0 = rnorm(dat$K)
-beta = matrix(rnorm(dat$K*dat$p_beta, 0, 0.3), dat$p_beta, dat$K)
-Sigma_species = cov2cor(rinvwishart(12, diag(rep(1, dat$K))))
-tau = c(1.14, 1.2, 0.5, 1.23, 0.8, 1.1)
-phi = matrix(rnorm(dat$K*dat$p_phi, 0, 0.3), dat$p_phi, dat$K)
+dat_train$y_vec = trainY$y_vec
+dat_train$Y = trainY$Y
 
-z = matrix(rnorm(dat$K*dat$n_lakes), dat$n_lakes, dat$K)
-
-
-# intercept
-B0 = matrix(rep(beta_0, dat$N), dat$N, dat$K, byrow = T)
-
-# Random effects - mean zero by species
-omega_star = z %*% diag(tau) %*% Sigma_species %*% diag(tau)
-omega_mean = apply(omega_star, 2, mean) # calculate mean of omega
-omega = omega_star - matrix(rep(omega_mean, dat$n_lakes), dat$n_lakes, dat$K, byrow = T)
-OMEGA = dat$each_lake %*% omega
-
-# relative abundance
-gamma = B0 + dat$X %*% beta + OMEGA
-range(exp(gamma))
-
-# catchability
-theta_star = dat$Z %*% phi
-theta_star_star = dat$Zstar %*% phi
-# theta = theta_star - mean(theta_star_star) - variance(theta_star_star)/2
-theta = theta_star - mean(theta_star_star) - var(c(theta_star_star))/2
-# theta = theta_star - apply(theta_star_star, 2, mean) - apply(theta_star_star, 2, var)/2
+testY$y_vec = testY$y_vec
+testY$Y = testY$Y
 
 
-lambda = exp(log(dat$effort) + theta + gamma)
-y = rpois(dat$N*dat$K, c(lambda))
-Y = matrix(y, dat$N, dat$K)
-
-dat$y_vec = y
-dat$Y = Y
 
 
 # set up stan parameters --------------------------------------------------
 
-out = stan(file = 'stan/spatial_jsdm_effort_scaling.stan', data = dat, iter = 200, warmup = 100, chains = 1, cores = 1, refresh = 10) # our model
+out = stan(file = 'stan/spatial_jsdm_effort_scaling.stan', data = dat_train, iter = 200, warmup = 100, chains = 3, cores = 3, refresh = 10) # our model
 
+# saveRDS(out, "data/stan_jsdm_simulation.rds")
+# out = read_rds("data/stan_jsdm_simulation.rds")
 
 chains = extract(out, permuted = T)
 names(chains)
 lapply(chains, dim)
 
-
-# phis = chains$phi[100,,]
-# zm = dat$Zstar %*% chains$phi[sample(1:999, size = 1),,]
-# mu = mean(zm)
-# sig = var(c(zm))/2
-# mean(exp(zm - mu - sig))
-# 
-# apply(chains$omega, 3, mean)
 
 
 b_names = colnames(dat$X)
@@ -272,7 +377,7 @@ for(i in 1:6){
 
 par(mfrow = c(2,4))
 for(i in 1:8){
-  plot(chains$beta[,i,5], type = 'l', main = i)
+  plot(chains$beta[,i,1], type = 'l', main = i)
 }
 
 par(mfrow = c(3,4))
@@ -282,7 +387,7 @@ for(i in 1:12){
 
 par(mfrow = c(2,3))
 for(i in 1:6){
-  plot(chains$omega[,i,3], type = 'l', main = i)
+  plot(chains$omega[,3,i], type = 'l', main = i)
 }
 
 par(mfrow = c(2,3))
@@ -297,6 +402,129 @@ for(i in 1:6){
 
 
 plot(chains$lp__, type = 'l')
+
+
+
+
+
+# check coverage ----------------------------------------------------------
+
+
+b0upper = apply(chains$beta_0, c(2), quantile, probs = 0.975)
+b0lower = apply(chains$beta_0, c(2), quantile, probs = 0.025)
+
+bupper = apply(chains$beta, c(2,3), quantile, probs = 0.975)
+blower = apply(chains$beta, c(2,3), quantile, probs = 0.025)
+
+pupper = apply(chains$phi, c(2,3), quantile, probs = 0.975)
+plower = apply(chains$phi, c(2,3), quantile, probs = 0.025)
+
+oupper = apply(chains$omega, c(2,3), quantile, probs = 0.975)
+olower = apply(chains$omega, c(2,3), quantile, probs = 0.025)
+
+supper = apply(chains$Sigma_species, c(2,3), quantile, probs = 0.975)
+slower = apply(chains$Sigma_species, c(2,3), quantile, probs = 0.025)
+
+tupper = apply(chains$tau, c(2), quantile, probs = 0.975)
+tlower = apply(chains$tau, c(2), quantile, probs = 0.025)
+
+
+
+
+(beta_0 > b0lower) & (beta_0 < b0upper)
+sign(b0lower) == sign(b0upper)
+covBeta0 = sum((beta_0 > b0lower) & (beta_0 < b0upper))/length(beta_0)
+
+(beta > blower) & (beta < bupper)
+sign(blower) == sign(bupper)
+covBeta = sum((beta > blower) & (beta < bupper))/length(beta)
+
+(phi > plower) & (phi < pupper)
+sign(plower) == sign(pupper)
+covPhi = sum((phi > plower) & (phi < pupper))/length(phi)
+
+
+(omega_train > olower) & (omega_train < oupper)
+sign(olower) == sign(oupper)
+covOmega = sum((omega_train > olower) & (omega_train < oupper))/length(omega_train)
+sum(sign(omega_train) == sign(omega_train))/length(omega_train)
+
+
+(Sigma_species > slower) & (Sigma_species < supper)
+sign(slower) == sign(supper)
+# don't include diagonal and is symmetric
+covSigma = sum(((Sigma_species > slower) & (Sigma_species < supper))[upper.tri((Sigma_species > slower) & (Sigma_species < supper))])/length((((Sigma_species > slower) & (Sigma_species < supper))[upper.tri((Sigma_species > slower) & (Sigma_species < supper))]))
+
+
+(tau > tlower) & (tau < tupper)
+sign(tlower) == sign(tupper)
+covTau = sum((tau > tlower) & (tau < tupper))/length(tau)
+
+# coverage percentage
+sum(covBeta0*length(beta_0),
+    covBeta*length(beta),
+    covPhi*length(phi),
+    covOmega*length(omega_train),
+    covSigma*15,
+    covTau*length(tau))/sum(length(beta_0),length(beta),length(phi),length(omega_train),15,length(tau))
+
+
+
+# predictability of lambda ------------------------------------------------
+
+
+chains = extract(out, permuted = T)
+
+beta_0_hat = apply(chains$beta_0, 2, mean)
+beta_hat = apply(chains$beta, c(2,3), mean)
+phi_hat = apply(chains$phi, c(2,3), mean)
+omega_hat = apply(chains$omega, c(2,3), mean)
+Sigma_species_hat = apply(chains$Sigma_species, c(2,3), mean)
+tau_hat = apply(chains$tau, 2, mean)
+
+omega_test_hat = omega_hat %>% 
+  as_tibble() %>% 
+  mutate(DOW = dat_train$lake_id) %>% 
+  right_join(tibble(DOW = dat_test$lake_id)) %>% 
+  droplevels() %>% 
+  select(-DOW) %>% 
+  as.matrix() %>% 
+  unname()
+
+
+computeLambda = function(beta_0, beta, phi, Sigma_species, tau, omega, dat){
+  
+  OMEGA = dat$each_lake %*% omega
+  
+  # relative abundance
+  B0 = matrix(rep(beta_0, dat$N), dat$N, dat$K, byrow = T)
+  gamma = B0 + dat$X %*% beta + OMEGA
+  
+  # catchability
+  theta_star = dat$Z %*% phi
+  theta_star_star = dat$Zstar %*% phi
+  theta = theta_star - mean(theta_star_star) - var(c(theta_star_star))/2
+  
+  
+  lambda = exp(log(dat$effort) + theta + gamma)
+  return(lambda)
+  
+}
+
+# computeLambda(beta_0_hat, beta_hat, phi_hat, Sigma_species_hat, tau_hat, omega_train, dat_train)
+lambdaEst = computeLambda(beta_0_hat, beta_hat, phi_hat, Sigma_species_hat, tau_hat, omega_test_hat, dat_test)
+lambdaTrue = computeLambda(beta_0, beta, phi, Sigma_species, tau, omega_test, dat_test)
+
+
+sqrt(sum((lambdaEst - lambdaTrue)^2))
+plot(c(lambdaEst), c(lambdaTrue), xlim = c(0, 1000))
+
+
+
+
+
+
+
 
 
 
