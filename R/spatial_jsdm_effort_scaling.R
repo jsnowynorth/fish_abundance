@@ -170,7 +170,7 @@ create_pars <- function(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_
 
 dat = create_pars(fish_dat, mean_covs, temporal_covs, mean_covs_log, mean_covs_logit, catch_covs, center_temp)
 
-out = stan(file = 'stan/spatial_jsdm_effort_scaling.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1, refresh = 10) # our model
+out = stan(file = 'stan/jdsm_full_model.stan', data = dat, iter = 2000, warmup = 1000, chains = 1, cores = 1, refresh = 10) # our model
 
 # saveRDS(out, "data/stan_jsdm_effort_scaling.rds")
 # out = read_rds("data/stan_jsdm_effort_scaling.rds")

@@ -94,33 +94,56 @@ data {
 
 transformed data{
 
-  row_vector[n_lakes] mean_ones = rep_row_vector(1, n_lakes);
+  // row_vector[n_lakes] mean_ones = rep_row_vector(1, n_lakes);
+  // vector[K * n_lakes] A =  rep_vector(1, n_lakes * K);
+  // matrix[n_lakes, n_lakes] Qpre = diag_matrix(rep_vector(1, n_lakes));
+  
+  vector[K] A =  rep_vector(1, K);
+  // matrix[K, K] Sig = diag_matrix(A);
 
 }
 
 parameters {
   
-  row_vector[K] beta_0; // intercept
-  matrix[p_beta, K] beta; // abundance parameters
+  // row_vector[K] beta_0; // intercept
+  // row_vector[K-1] beta_0_eff; // intercept
+  // matrix[p_beta, K] beta; // abundance parameters
+  vector[p_beta*K - 1] beta_eff; // catchability parameters
   matrix[p_phi, K] phi; // catchability parameters
-  corr_matrix[K] Sigma_species; // species correlation
+  // vector[p_phi*K - 1] phi_eff; // catchability parameters
+  cholesky_factor_corr[K] Sigma_species; // species correlation
   vector<lower=0>[K] tau; // species scale
   matrix[n_lakes, K] z; // random effect sample - the matt
   
 }
 
 transformed parameters{
+
+  // force mean zero
+  // matrix[n_lakes, K] omega = z * diag_pre_multiply(tau, Sigma_species); // species random effect
   
-  matrix[n_lakes, K] omega_star; // species random effect
+  // conditional sample mean zero
+  matrix[K, K] Sig = diag_pre_multiply(tau, Sigma_species) * diag_pre_multiply(tau, Sigma_species)';
+  matrix[n_lakes, K] omega = z - rep_matrix((inverse(Sig) * A * (1/(sum(inverse(Sig)*n_lakes))) * sum(z))', n_lakes);
   
-  omega_star = z * quad_form_diag(Sigma_species, tau);
-  
+  // row_vector[K] beta_0 = append_col(beta_0_eff, 0); // catchability parameters
+  vector[p_beta*K] beta_tmp = append_row(0, beta_eff); // catchability parameters
+  matrix[p_beta, K] beta = to_matrix(beta_tmp, p_beta, K); // catchability parameters
+
+  // phi = to_matrix(phi_tmp, p_phi, K);
+
+  // omega_star = z * quad_form_diag(Sigma_species, tau);
+
+
 }
 
 model {
   
   // define model parameters
-  matrix[N, K] B0; // global intercept
+
+  // matrix[N, K] B0; // global intercept
+  real mux; // mean for log normal
+  real sx; // sd for log normal
   matrix[N, K] theta_star; // unbounded effort scaling
   matrix[Nstar, K] theta_star_star; // unbounded effort scaling
   matrix[N, K] theta; // bounded effort scaling
@@ -128,50 +151,68 @@ model {
   matrix[N, K] lambda; // mean intensity function
   matrix[N, K] OMEGA; // lake-wise random effect
   vector[N*K] lambda_vec; // lambda vector
-  matrix[n_lakes, K] omega; // species random effect
-  row_vector[K] omega_mean; // species random effect mean
+  // matrix[n_lakes, K] omega; // species random effect
+  // matrix[n_lakes * K, n_lakes * K] Q = kronecker_prod(inverse(diag_pre_multiply(tau, Sigma_species)), Qpre); // species random effect
 
   // Global intercept
-  B0 = rep_matrix(beta_0, N);
+  // B0 = rep_matrix(beta_0, N);
   
   // Random effects - mean zero by species
-  omega_mean = (mean_ones * omega_star)./n_lakes; // calculate mean of omega
-  omega = omega_star - rep_matrix(omega_mean, n_lakes);
-  OMEGA = each_lake * omega;
+  // omega_mean = (mean_ones * omega_star)./n_lakes; // calculate mean of omega
+  // omega = omega_star - rep_matrix(omega_mean, n_lakes);
+  // OMEGA = each_lake * omega;
+  
+  // omega = each_lake * omega_star;
+  // OMEGA = each_lake * (omega - mean(omega)); // force mean zero
+  OMEGA = each_lake * omega; // sample mean zero
+  
+  // omega = z - to_matrix(Q * A * (1/(A' * Q * A)) * sum(to_vector(z)), n_lakes, K);
+  // OMEGA = each_lake * omega;
   
   // relative abundance
-  gamma = B0 + X * beta + OMEGA;
+  // gamma = B0 + X * beta + OMEGA;
+  gamma = X * beta + OMEGA;
 
-  // effort scaling, mean exp(theta) = 1 for all days over entire sample period
+  // effort scaling
+  // theta = Z * phi;
   theta_star = Z * phi;
   theta_star_star = Zstar * phi;
-  theta = theta_star - mean(theta_star_star) - variance(theta_star_star)/2;
+  mux = mean(exp(theta_star_star))^2;
+  sx = variance(exp(theta_star_star));
+  theta = theta_star - log(mux/sqrt(mux+sx)) - log(1 + sx/mux)/2;
   
   // log lambda
   lambda = log(effort) + gamma + theta;
+  // lambda = log(effort) + gamma;
   lambda_vec = to_vector(lambda);
   
   // priors - https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
-  beta_0 ~ normal(0, 10); // beto 0 prior
-  to_vector(beta) ~ std_normal(); // beta prior
-  to_vector(phi) ~ std_normal(); // phi prior
-  tau ~ cauchy(0, 2.5); // scale prior
-  Sigma_species ~ lkj_corr(1); // Sigma_species prior, parameter determines strength of correlation, https://distribution-explorer.github.io/multivariate_continuous/lkj.html
+  // beta_0 ~ normal(0, 10); // beto 0 prior
+  // beta_0_eff ~ std_normal(); // beto 0 prior
+  // to_vector(beta) ~ std_normal(); // beta prior
+  // to_vector(phi) ~ std_normal(); // phi prior
+  // to_vector(beta) ~ normal(0, 10); // beta prior
+  to_vector(beta_eff) ~ normal(0, 10); // beta prior
+  to_vector(phi) ~ normal(0, 10); // phi prior
+  // phi_eff ~ std_normal(); // phi prior
   to_vector(z) ~ std_normal(); // omega prior
+  tau ~ cauchy(0, 2.5); // scale prior
+  Sigma_species ~ lkj_corr_cholesky(0.5); // Sigma_species prior, parameter determines strength of correlation, https://distribution-explorer.github.io/multivariate_continuous/lkj.html
+  
   
   // likelihood
   y_vec ~ poisson_log(lambda_vec);
   
 }
 
-generated quantities{
+// generated quantities{
 
   
-  matrix[n_lakes, K] omega; // species random effect
+  // matrix[n_lakes, K] omega; // species random effect
   
   // return random effects mean zero by species
-  omega = omega_star - rep_matrix((mean_ones * omega_star)./n_lakes, n_lakes);
+  // omega = z - to_matrix(Q * A' * (1/(A * Q * A')) * sum(to_vector(z)), n_lakes, K);
 
-}
+// }
 
 

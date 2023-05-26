@@ -393,17 +393,20 @@ omega = chains$omega
 sigma_species = chains$Sigma_species
 tau = chains$tau
 
-# n_samps = dim(beta)[1]
-# for(i in 1:n_samps){
-#   
-#   a = dat$Z %*% phi[i,,]
-#   int_scale = var(c(a))/2 # shift theta star variance to intercept
-#   
-#   beta_0[i,] = beta_0[i,] + int_scale
-#   phi[i,1,] = phi[i,1,] - int_scale
-#   
-# }
+library(coda)
 
+mcmcList = As.mcmc.list(out, pars = list("beta", "phi", "tau"))
+geweke.diag(mcmcList, frac1 = 0.3, frac2 = 0.3)
+
+plot(chains$phi[,12,1], type = 'l')
+plot(chains$beta[,5,3], type = 'l')
+
+mean(chains$phi[1:100,11,4])
+sd(chains$phi[1:100,11,4])
+sd(chains$phi[901:1000,11,4])
+
+t.test(chains$beta[1:100,1,6], chains$beta[501:1000,1,6])
+t.test(chains$phi[1:100,12,1], chains$phi[901:1000,12,1])
 
 b_names = colnames(dat$X)
 phi_names = colnames(dat$Z)
@@ -869,14 +872,14 @@ for(i in 1:nrow(b_plt_no)){
 }
 
 
-betas_plt = rbind(b_plt %>% mutate(model = 'with effort scaling'), b_plt_no %>% mutate(model = 'without effort scaling'))
+betas_plt = rbind(b_plt %>% mutate(model = 'varying catchability'), b_plt_no %>% mutate(model = 'constant catchability'))
 
 betas_plt = betas_plt %>% 
   mutate(Variable = str_to_lower(Variable)) %>% 
   mutate(Variable = factor(Variable, levels = c('int', 'max depth', 'lake area', 'ag', 'urban', 'wetlands', 'gdd', 'secchi')))
 
 betas_plt = betas_plt %>% 
-  mutate(model = factor(model, levels = c('with effort scaling', 'without effort scaling')))
+  mutate(model = factor(model, levels = c('varying catchability', 'constant catchability')))
 
 
 # https://stackoverflow.com/questions/54438495/shift-legend-into-empty-facets-of-a-faceted-plot-in-ggplot2
